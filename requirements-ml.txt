@@ -1,0 +1,3 @@
+# Optional: install only if you want scikit-learn and matplotlib support for advanced metrics.
+scikit-learn>=1.3
+matplotlib>=3.8

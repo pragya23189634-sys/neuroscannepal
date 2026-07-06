@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.cache
+*.pytest_cache/
+*.mypy_cache/
+.pytest_cache/
+.pyre/
+
+# Environments
+.env
+.venv/
+venv/
+ENV/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Data and model outputs
+data/
+results/
+models/
+
+# Logs
+*.log

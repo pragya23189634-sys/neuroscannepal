@@ -1,0 +1,4 @@
+numpy>=1.26
+nibabel>=5.0
+pillow>=10.0
+joblib>=1.4
