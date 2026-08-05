@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from preprocessing import list_scan_files, summarize_dataset
+from preprocessing import list_scan_files, run_preprocessing_pipeline, summarize_dataset
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -78,6 +78,14 @@ def main() -> None:
 
     if list_scan_files(NORMAL_DIR) or list_scan_files(ABNORMAL_DIR):
         summarize_dataset(NORMAL_DIR, ABNORMAL_DIR)
+        run_preprocessing_pipeline(
+            normal_dir=NORMAL_DIR,
+            abnormal_dir=ABNORMAL_DIR,
+            output_root=PROJECT_ROOT / "data" / "processed",
+            train_ratio=0.8,
+            augment=True,
+            random_state=42,
+        )
         return
 
     create_patient_prototype(patient_count=args.patient_count, output_path=args.output)

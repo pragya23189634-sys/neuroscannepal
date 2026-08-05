@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <defs>
+    <linearGradient id="g2" x1="0" x2="1">
+      <stop offset="0" stop-color="#fff1f2"/>
+      <stop offset="1" stop-color="#fff7ed"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="#0b1220"/>
+  <g transform="translate(80,80)">
+    <rect width="1040" height="740" rx="14" fill="#fff"/>
+    <rect x="24" y="24" width="992" height="692" rx="10" fill="url(#g2)"/>
+    <text x="80" y="140" fill="#0f172a" font-family="Segoe UI, Arial, sans-serif" font-size="36">Abnormal MRI sample (placeholder)</text>
+    <rect x="80" y="200" width="700" height="420" rx="8" fill="#fff7ed"/>
+    <text x="100" y="360" fill="#92400e" font-family="Segoe UI, Arial, sans-serif" font-size="20">Placeholder showing an abnormal example for demo.</text>
+  </g>
+</svg>

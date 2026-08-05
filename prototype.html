@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype | NeuroScan Nepal</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <nav class="top-nav">
+      <a class="brand" href="index.html">NeuroScan Nepal</a>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a class="active" href="prototype.html">Prototype</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <div class="pill">🧠 Clinical prototype workflow</div>
+        <h1>Move from a static dashboard to a guided MRI review experience.</h1>
+        <p>This page focuses on the prototype interaction itself: upload, inspect, and review the result as though you are demonstrating the system to a clinician.</p>
+        <div class="actions">
+          <a class="btn-secondary" href="index.html">Back to overview</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="panel">
+        <h2>Prototype overview</h2>
+        <p>A focused demo: upload a scan or load a sample to view the model result panel.</p>
+      </section>
+    </main>
+
+    <section class="panel analysis-panel">
+      <div class="pill">🔬 Review MRI case</div>
+      <h3>Upload or compare a case</h3>
+      <p>Use the controls below to switch between sample cases or upload a local scan for demonstration purposes.</p>
+      <div class="analysis-grid">
+        <div class="analysis-card">
+          <div class="upload-box">
+            <label for="mri-upload" class="btn-secondary" style="display:inline-block; width:max-content;">Upload MRI image</label>
+            <input id="mri-upload" type="file" accept="image/*" />
+            <div class="sample-row">
+              <button class="btn-secondary sample-btn" data-case="normal">Load normal sample</button>
+              <button class="btn-secondary sample-btn" data-case="glioma">Load abnormal sample</button>
+            </div>
+            <div id="upload-status" style="margin-top:8px; color:var(--muted); font-size:0.95rem;"></div>
+          </div>
+          <div class="preview-frame">
+            <img id="analysis-image" src="assets/samples/notumor.jpg" alt="MRI preview" class="carousel-img" />
+          </div>
+        </div>
+
+        <div class="result-card light-result">
+          <div class="result-header">
+            <div>
+              <div class="result-title" id="result-title">Normal case</div>
+              <div class="result-chip" id="result-chip">Low risk</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:.75rem; color:#64748b">Confidence</div>
+              <div id="confidence-value" style="font-weight:700; font-size:1.05rem;">94%</div>
+            </div>
+          </div>
+
+          <div class="confidence-bar" aria-hidden="true"><span id="confidence-bar-fill" style="width:94%"></span></div>
+
+          <div class="info-grid">
+            <div class="info-box">
+              <div style="font-size:.75rem; color:#64748b">Prediction</div>
+              <div id="prediction-label" style="font-weight:600;">Normal</div>
+            </div>
+            <div class="info-box risk-box">
+              <div style="font-size:.75rem; color:#92400e">Risk level</div>
+              <div id="risk-level" style="font-weight:600;">Low</div>
+            </div>
+          </div>
+
+          <div class="summary-box">
+            <h4>Clinical summary</h4>
+            <p id="summary-text">The model did not detect strong abnormal tissue patterns in this scan and is presenting a low-risk assessment.</p>
+          </div>
+
+          <div class="next-steps">
+            <h4>Suggested next step</h4>
+            <p id="next-step-text">Continue routine review and monitor for follow-up if symptoms persist.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top: 20px;">
+      <h3>Sample MRI scans</h3>
+      <p>These examples make it easier to compare normal and abnormal cases visually.</p>
+      <div class="image-grid">
+        <div class="carousel" id="sample-carousel" style="display:flex; align-items:center; gap:12px;">
+          <button id="prev-sample" aria-label="Previous" style="background:#eef2ff;border:0;padding:8px;border-radius:6px;">◀</button>
+          <div style="flex:1; display:flex; justify-content:center;">
+            <img id="carousel-image" src="assets/samples/notumor.jpg" alt="Sample MRI" class="carousel-img" />
+          </div>
+          <button id="next-sample" aria-label="Next" style="background:#eef2ff;border:0;padding:8px;border-radius:6px;">▶</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const sampleCases = {
+      normal: {
+        title: 'Normal case',
+        label: 'Normal',
+        chip: 'Low risk',
+        confidence: 94,
+        summary: 'The model did not detect strong abnormal tissue patterns in this scan and is presenting a low-risk assessment.',
+        nextStep: 'Continue routine review and monitor for follow-up if symptoms persist.',
+        image: 'assets/samples/notumor.jpg'
+      },
+      glioma: {
+        title: 'Abnormal case',
+        label: 'Glioma',
+        chip: 'High concern',
+        confidence: 89,
+        summary: 'The model highlights suspicious tissue patterns consistent with a possible glioma and should be reviewed by a clinician.',
+        nextStep: 'Escalate for specialist review and confirm with additional imaging.',
+        image: 'assets/samples/glioma.jpg'
+      }
+    };
+
+    function applyCase(caseName) {
+      const selectedCase = sampleCases[caseName];
+      if (!selectedCase) return;
+      document.getElementById('analysis-image').src = selectedCase.image;
+      document.getElementById('analysis-image').alt = selectedCase.title;
+      document.getElementById('result-title').textContent = selectedCase.title;
+      document.getElementById('result-chip').textContent = selectedCase.chip;
+      document.getElementById('confidence-value').textContent = `${selectedCase.confidence}%`;
+      document.getElementById('confidence-bar-fill').style.width = `${selectedCase.confidence}%`;
+      document.getElementById('prediction-label').textContent = selectedCase.label;
+      document.getElementById('risk-level').textContent = selectedCase.chip === 'High concern' ? 'High' : 'Low';
+      document.getElementById('summary-text').textContent = selectedCase.summary;
+      document.getElementById('next-step-text').textContent = selectedCase.nextStep;
+    }
+
+    document.querySelectorAll('.sample-btn').forEach(button => {
+      button.addEventListener('click', () => applyCase(button.dataset.case));
+    });
+
+    document.getElementById('mri-upload').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // Preview immediately
+      const reader = new FileReader();
+      reader.onload = () => {
+        document.getElementById('analysis-image').src = reader.result;
+        document.getElementById('analysis-image').alt = 'Uploaded MRI preview';
+        document.getElementById('result-title').textContent = 'Uploaded scan';
+        document.getElementById('result-chip').textContent = 'Uploading...';
+        document.getElementById('confidence-value').textContent = '--';
+        document.getElementById('confidence-bar-fill').style.width = '0%';
+        document.getElementById('prediction-label').textContent = 'Pending review';
+        document.getElementById('risk-level').textContent = 'Pending';
+        document.getElementById('summary-text').textContent = 'Uploading and queued for processing...';
+        document.getElementById('next-step-text').textContent = '';
+      };
+      reader.readAsDataURL(file);
+
+      const statusEl = document.getElementById('upload-status');
+      statusEl.textContent = 'Uploading...';
+
+      try {
+        const form = new FormData();
+        form.append('file', file, file.name);
+        const resp = await fetch('http://127.0.0.1:8000/upload', { method: 'POST', body: form });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          statusEl.textContent = `Upload failed: ${resp.status} ${txt}`;
+          document.getElementById('result-chip').textContent = 'Upload failed';
+          return;
+        }
+        const data = await resp.json();
+        const jobId = data.job_id;
+        statusEl.textContent = `Upload succeeded — job ${jobId} created. Waiting for processing...`;
+        document.getElementById('result-chip').textContent = 'Queued';
+
+        // Poll job status
+        const poll = async () => {
+          try {
+            const r = await fetch(`http://127.0.0.1:8000/jobs/${jobId}`);
+            if (!r.ok) {
+              statusEl.textContent = `Job not found (${r.status})`;
+              return;
+            }
+            const job = await r.json();
+            statusEl.textContent = `Job ${jobId}: ${job.status}`;
+            if (job.status === 'completed') {
+              const score = job.result && job.result.score ? job.result.score : 0.0;
+              const pct = Math.round(score * 100);
+              document.getElementById('confidence-value').textContent = `${pct}%`;
+              document.getElementById('confidence-bar-fill').style.width = `${pct}%`;
+              document.getElementById('prediction-label').textContent = score > 0.5 ? 'Abnormal' : 'Normal';
+              document.getElementById('risk-level').textContent = score > 0.5 ? 'High' : 'Low';
+              document.getElementById('result-chip').textContent = score > 0.5 ? 'High concern' : 'Low risk';
+              statusEl.textContent = `Job ${jobId} completed.`;
+            } else if (job.status === 'running' || job.status === 'pending') {
+              setTimeout(poll, 1500);
+            } else {
+              // unknown state
+              setTimeout(poll, 2000);
+            }
+          } catch (err) {
+            statusEl.textContent = 'Error polling job: ' + err.message;
+          }
+        };
+        setTimeout(poll, 1000);
+      } catch (err) {
+        statusEl.textContent = 'Upload error: ' + err.message;
+        document.getElementById('result-chip').textContent = 'Upload error';
+      }
+    });
+
+    // initialize carousel and bind controls
+    (function(){
+      applyCase('normal');
+      const carouselImages = ['assets/samples/notumor.jpg','assets/samples/glioma.jpg'];
+      const carouselCases = ['normal','glioma'];
+      let carouselIndex = 0;
+      const carouselImageEl = document.getElementById('carousel-image');
+      const analysisImageEl = document.getElementById('analysis-image');
+
+      function showCarousel(idx){
+        carouselIndex = (idx + carouselImages.length) % carouselImages.length;
+        carouselImageEl.src = carouselImages[carouselIndex];
+        // also update main demo view and result card to match the sample case
+        applyCase(carouselCases[carouselIndex]);
+        analysisImageEl.src = carouselImages[carouselIndex];
+      }
+
+      document.getElementById('prev-sample').addEventListener('click', ()=> showCarousel(carouselIndex-1));
+      document.getElementById('next-sample').addEventListener('click', ()=> showCarousel(carouselIndex+1));
+    })();
+  </script>
+</body>
+</html>

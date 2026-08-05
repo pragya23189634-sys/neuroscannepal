@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import List, Tuple
+import random
 import sys
 
 try:
@@ -30,16 +31,26 @@ try:
     from torch.utils.data import DataLoader, Dataset
 except ImportError:  # pragma: no cover
     torch = None
+    Dataset = None
 
 
 IMAGE_SIZE = (128, 128)
 
 
 class ScanDataset(Dataset):
-    def __init__(self, paths: List[Path], labels: List[int], image_size: Tuple[int, int] = IMAGE_SIZE):
+    def __init__(
+        self,
+        paths: List[Path],
+        labels: List[int],
+        image_size: Tuple[int, int] = IMAGE_SIZE,
+        augment: bool = False,
+        seed: int = 42,
+    ):
         self.paths = paths
         self.labels = labels
         self.image_size = image_size
+        self.augment = augment
+        self.seed = seed
 
     def __len__(self) -> int:
         return len(self.paths)
@@ -47,11 +58,31 @@ class ScanDataset(Dataset):
     def __getitem__(self, index: int):
         path = self.paths[index]
         label = self.labels[index]
-        scan = load_scan(path)
+        scan = load_scan(path, use_clahe=True)
+        if self.augment:
+            scan = self._augment_scan(scan, index)
         tensor = self._prepare_scan(scan)
         return tensor, torch.tensor(label, dtype=torch.long)
 
-    def _prepare_scan(self, scan: np.ndarray) -> torch.Tensor:
+    def _augment_scan(self, scan: np.ndarray, index: int) -> np.ndarray:
+        rng = random.Random(self.seed + index)
+
+        if rng.random() < 0.5:
+            scan = np.fliplr(scan)
+        if rng.random() < 0.5:
+            scan = np.flipud(scan)
+        if rng.random() < 0.5:
+            angle = rng.choice([0, 90, 180, 270])
+            scan = np.rot90(scan, k=angle // 90)
+
+        if rng.random() < 0.5:
+            noise = rng.gauss(0.0, 0.02)
+            scan = scan + noise * 255.0
+
+        scan = np.clip(scan, 0.0, 255.0)
+        return scan
+
+    def _prepare_scan(self, scan: np.ndarray):
         scan = np.nan_to_num(scan, nan=0.0, posinf=0.0, neginf=0.0)
         scan = np.asarray(scan, dtype=np.float32)
         scan = np.clip(scan, 0.0, None)
@@ -141,8 +172,8 @@ def train_cnn(
         paths, labels, test_size=test_size, stratify=labels, random_state=random_state
     )
 
-    train_dataset = ScanDataset(train_paths, train_labels)
-    val_dataset = ScanDataset(val_paths, val_labels)
+    train_dataset = ScanDataset(train_paths, train_labels, augment=True, seed=random_state)
+    val_dataset = ScanDataset(val_paths, val_labels, augment=False)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)

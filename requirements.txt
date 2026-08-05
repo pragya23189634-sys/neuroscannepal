@@ -2,3 +2,7 @@ numpy>=1.26
 nibabel>=5.0
 pillow>=10.0
 joblib>=1.4
+scikit-learn>=1.4
+fastapi>=0.95
+uvicorn[standard]>=0.22
+python-multipart>=0.0.9

@@ -1,89 +1,64 @@
 # NeuroScan Nepal
 
-A Python project template for organizing and processing neuroimaging data in Nepal.
+AI-assisted brain MRI screening platform — final year project (BCU / Sunway College Kathmandu).
+
+## Features
+
+- CNN-based abnormality classification (baseline model, ~94% validation accuracy)
+- CLAHE preprocessing with low-contrast quality check
+- 8-stage integration pipeline: upload → preprocessing → detection → Grad-CAM → RAG advisory → chatbot → hospital finder → report
+- FastAPI backend with step-by-step terminal logging
+- React dashboard for upload, live processing, and results review
 
 ## Project structure
 
-- `data/raw/normal` - raw normal scan samples
-- `data/raw/abnormal` - raw abnormal scan samples
-- `models` - trained models and checkpoints
-- `results` - evaluation outputs, figures, and reports
-- `src` - project source code
+- `data/raw/` — MRI dataset (not committed; add locally)
+- `models/` — trained weights (not committed)
+- `results/` — reports and job outputs (not committed)
+- `src/` — ML pipeline, preprocessing, training scripts
+- `frontend/` — React + Vite dashboard
+- `backend.py` — FastAPI server
+- `scripts/` — training and integration test helpers
 
 ## Setup
 
-1. Create a virtual environment:
+### Backend (Python 3.11 recommended — PyTorch support)
 
-```bash
-python -m venv .venv
-```
-
-2. Activate it:
-
-```bash
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-```
-
-3. Install the base dependencies needed for the loader and preprocessing pipeline:
-
-```bash
+```powershell
 pip install -r requirements.txt
-```
-
-4. (Optional) If you want to generate a confusion matrix plot during evaluation, install matplotlib separately:
-
-```bash
-pip install matplotlib
-```
-
-5. If you want to train the CNN, install the PyTorch dependencies separately:
-
-```bash
 pip install -r requirements-cnn.txt
+py -3.11 -m uvicorn backend:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-## Usage
+### Frontend
 
-Start the project from `src/main.py`:
-
-```bash
-python src/main.py
+```powershell
+cd frontend
+npm install
+npm run dev
 ```
 
-Train a simple abnormality classifier with the sample pipeline:
+Open http://127.0.0.1:3000
 
-```bash
-python src/train.py
+### Quick start (Windows)
+
+```powershell
+.\scripts\start_dashboard.ps1
 ```
 
-The training script uses a NumPy-based classifier and will create a model at `models/neuroscan_model.pkl`.
-It also writes a report to `results/training_report.txt`.
+## Training
 
-Evaluate a trained model:
-
-```bash
-python src/evaluate.py
+```powershell
+py -3.11 src/cnn_baseline.py --epochs 10 --batch-size 32
 ```
 
-Predict a label for a single scan file:
+## Integration testing
 
-```bash
-python src/predict.py --scan-path data/raw/normal/sample.nii
+```powershell
+py -3.11 scripts/test_25.py
+py -3.11 scripts/integration_test_25.py
 ```
 
-Train a simple convolutional neural network on the image data:
+## Disclaimer
 
-```bash
-python src/train_cnn.py
-```
-
-The CNN training script saves a model to `models/neuroscan_cnn.pth` and a report to `results/training_cnn_report.txt`.
-
-By default, the evaluation script loads `models/neuroscan_model.pkl`, performs a hold-out split, and writes `results/evaluation_report.txt`. It also saves a confusion matrix image to `results/confusion_matrix.png` when `matplotlib` is available.
-
-## Next steps
-
-- add neuroimaging data to `data/raw/normal` and `data/raw/abnormal`
-- implement preprocessing and feature extraction in `src/main.py`
-- add training and evaluation pipelines
+Research prototype for academic evaluation only — not for clinical diagnosis.
