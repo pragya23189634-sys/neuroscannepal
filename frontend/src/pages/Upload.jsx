@@ -4,9 +4,13 @@ import { CloudArrowUpIcon, DocumentIcon } from '@heroicons/react/24/outline'
 import { API_BASE } from '../config'
 import PageHeader from '../components/PageHeader'
 import StatusBadge from '../components/StatusBadge'
+import { authFetch, getToken } from '../utils/api'
+import { formatConfidencePercent } from '../utils/jobResult'
 
 export default function Upload() {
   const [file, setFile] = useState(null)
+  const [patients, setPatients] = useState([])
+  const [patientId, setPatientId] = useState('')
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [previewUrl, setPreviewUrl] = useState('')
@@ -18,11 +22,18 @@ export default function Upload() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    authFetch('/auth/patients')
+      .then((r) => r.json())
+      .then((data) => setPatients(Array.isArray(data) ? data : []))
+      .catch(() => setPatients([]))
+  }, [])
+
+  useEffect(() => {
     if (!jobId) return
     let cancelled = false
     const pollJob = async () => {
       try {
-        const res = await fetch(`${API_BASE}/jobs/${jobId}`)
+        const res = await authFetch(`/jobs/${jobId}`)
         if (!res.ok) return
         const data = await res.json()
         if (!cancelled) {
@@ -55,15 +66,18 @@ export default function Upload() {
   }
 
   const doUpload = () => {
-    if (!file) return
+    if (!file || !patientId) return
     setUploading(true)
     setProgress(0)
     setStatusMessage('Uploading scan to server...')
     const form = new FormData()
     form.append('file', file)
+    form.append('patient_id', patientId)
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${API_BASE}/upload`)
     xhr.timeout = 60000
+    const token = getToken()
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100))
     }
@@ -73,12 +87,12 @@ export default function Upload() {
         try {
           const data = JSON.parse(xhr.responseText)
           setJobId(data.job_id)
-          setStatusMessage('Upload complete. Pipeline started.')
+          setStatusMessage(`Upload complete for patient ${data.patient_unique_id}. Pipeline started.`)
         } catch {
           setStatusMessage('Upload succeeded but response could not be parsed.')
         }
       } else {
-        setStatusMessage(`Upload failed (${xhr.status}). Is the backend running?`)
+        setStatusMessage(`Upload failed (${xhr.status}). Check patient selection and login.`)
       }
     }
     xhr.ontimeout = () => { setUploading(false); setStatusMessage('Upload timed out.') }
@@ -89,18 +103,34 @@ export default function Upload() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Step 1"
+        eyebrow="Radiologist"
         title="Upload MRI scan"
-        description="Supported formats: JPEG, PNG, BMP, NIfTI (.nii, .nii.gz). The scan will be preprocessed with CLAHE and passed through the classification pipeline."
+        description="Select a registered patient, upload their MRI, and run the full AI classification pipeline."
       />
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="card p-6">
+          <label className="block text-sm">
+            <span className="font-medium text-slate-700">Assign to patient *</span>
+            <select
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+              value={patientId}
+              onChange={(e) => setPatientId(e.target.value)}
+            >
+              <option value="">Select patient…</option>
+              {patients.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.full_name} — {p.patient_unique_id}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <input ref={inputRef} type="file" className="hidden" accept="image/*,.nii,.nii.gz" onChange={(e) => handleSelectedFile(e.target.files?.[0])} />
-          <button type="button" className="input-file-zone w-full" onClick={() => inputRef.current?.click()}>
+          <button type="button" className="input-file-zone mt-4 w-full" onClick={() => inputRef.current?.click()}>
             <CloudArrowUpIcon className="h-10 w-10 text-primary/70" />
             <p className="mt-3 text-sm font-medium text-slate-800">{file ? file.name : 'Click to select an MRI image'}</p>
-            <p className="mt-1 text-xs text-slate-500">Drag & drop supported in most browsers via file picker</p>
+            <p className="mt-1 text-xs text-slate-500">JPEG, PNG, BMP, NIfTI (.nii, .nii.gz)</p>
           </button>
 
           {previewUrl && (
@@ -113,7 +143,7 @@ export default function Upload() {
         <section className="card p-6">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Upload status</h3>
           <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-            {statusMessage || 'Select a scan to begin.'}
+            {statusMessage || 'Select a patient and scan to begin.'}
           </div>
 
           {uploading && (
@@ -134,13 +164,14 @@ export default function Upload() {
 
           {jobResult && (
             <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm">
-              <p className="font-semibold capitalize text-emerald-900">{jobResult.label} — {Math.round((jobResult.confidence || 0) * 100)}% confidence</p>
+              <p className="font-semibold capitalize text-emerald-900">{jobResult.label || 'Analyzed'} — {formatConfidencePercent(jobResult)}% confidence</p>
               {jobResult.low_quality && <p className="mt-1 text-amber-700">Low-contrast image flagged during QC</p>}
+              {jobResult.review_required && <p className="mt-1 font-medium text-amber-700">Uncertain result — clinician review is required.</p>}
             </div>
           )}
 
           <div className="mt-6 flex flex-wrap gap-2">
-            <button type="button" className="btn-primary" onClick={doUpload} disabled={!file || uploading}>
+            <button type="button" className="btn-primary" onClick={doUpload} disabled={!file || !patientId || uploading}>
               {uploading ? 'Uploading…' : 'Start analysis'}
             </button>
             {jobId && (
@@ -155,7 +186,7 @@ export default function Upload() {
 
           <div className="mt-6 flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
             <DocumentIcon className="mt-0.5 h-4 w-4 shrink-0" />
-            <p>All pipeline steps are logged in the backend terminal and saved to <code>neuroscan.log</code> for integration testing evidence.</p>
+            <p>Patients must register first to receive a unique ID (e.g. NSN-PAT-000001) before you can upload their scan.</p>
           </div>
         </section>
       </div>

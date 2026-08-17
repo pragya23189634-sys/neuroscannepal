@@ -4,5 +4,5 @@
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location (Join-Path $ProjectRoot "src")
 
-Write-Host "Starting fast CNN training (cached data + preprocessed PNGs)..." -ForegroundColor Cyan
-py -3.11 cnn_baseline.py --epochs 10 --batch-size 32 @args
+Write-Host "Starting tuned CNN training (augmentation + AdamW + calibration)..." -ForegroundColor Cyan
+py -3.11 cnn_baseline.py --epochs 30 --batch-size 32 --learning-rate 0.0005 --weight-decay 0.0001 --label-smoothing 0.03 --patience 7 @args

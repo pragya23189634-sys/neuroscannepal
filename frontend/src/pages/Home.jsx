@@ -6,17 +6,17 @@ import {
   ClockIcon,
   QueueListIcon,
 } from '@heroicons/react/24/outline'
-import { API_BASE } from '../config'
 import PageHeader from '../components/PageHeader'
 import StatCard from '../components/StatCard'
 import StatusBadge from '../components/StatusBadge'
+import { authFetch } from '../utils/api'
 
 export default function Home() {
   const [jobs, setJobs] = useState([])
   const [backendOnline, setBackendOnline] = useState(true)
 
   useEffect(() => {
-    fetch(`${API_BASE}/jobs`)
+    authFetch('/jobs')
       .then((r) => r.json())
       .then((data) => {
         setJobs(Array.isArray(data) ? data : [])

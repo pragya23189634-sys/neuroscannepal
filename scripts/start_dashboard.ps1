@@ -30,3 +30,8 @@ Write-Host "  upload -> preprocessing -> detection -> gradcam -> rag -> chatbot 
 Write-Host ""
 Write-Host "Log file : $ProjectRoot\neuroscan.log" -ForegroundColor Gray
 Write-Host "Keep both PowerShell windows open while testing." -ForegroundColor Gray
+
+Write-Host ""
+Write-Host "Opening the login page in your browser..." -ForegroundColor Green
+Start-Sleep -Seconds 4
+Start-Process "http://127.0.0.1:3000/login"

@@ -30,6 +30,7 @@ Thumbs.db
 data/
 results/
 models/
+scripts/neuroscan_data.zip
 
 # Logs
 *.log
@@ -37,6 +38,7 @@ models/
 # Runtime / uploads
 uploads/
 jobs.json
+neuroscan.db
 
 # Frontend
 frontend/node_modules/

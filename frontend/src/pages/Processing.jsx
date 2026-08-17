@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CheckCircleIcon, ClockIcon } from '@heroicons/react/24/outline'
-import { API_BASE, PIPELINE_STEPS } from '../config'
+import { PIPELINE_STEPS } from '../config'
 import PageHeader from '../components/PageHeader'
 import StatusBadge from '../components/StatusBadge'
+import { formatConfidencePercent } from '../utils/jobResult'
+import { authFetch } from '../utils/api'
 
 export default function Processing() {
   const [search] = useSearchParams()
@@ -15,7 +17,7 @@ export default function Processing() {
     let mounted = true
     const fetchJob = async () => {
       try {
-        const res = await fetch(`${API_BASE}/jobs/${jobId}`)
+        const res = await authFetch(`/jobs/${jobId}`)
         if (!res.ok) throw new Error('not found')
         const data = await res.json()
         if (mounted) setJob(data)
@@ -110,7 +112,7 @@ export default function Processing() {
             <div className="card p-6">
               <h3 className="text-lg font-semibold text-slate-900">Preliminary output</h3>
               <p className="mt-2 text-sm capitalize text-slate-700">
-                Classification: <strong>{job.result.label}</strong> ({Math.round((job.result.confidence || 0) * 100)}% confidence)
+                Classification: <strong>{job.result.label}</strong> ({formatConfidencePercent(job.result)}% confidence)
               </p>
               {job.result.rag_advisory?.summary && (
                 <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">{job.result.rag_advisory.summary}</p>

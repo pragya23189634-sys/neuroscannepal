@@ -13,8 +13,9 @@ export const PIPELINE_STEPS = [
 
 export const MODEL_INFO = {
   name: 'Baseline CNN',
-  version: 'v1.0',
-  validationAccuracy: '94.4%',
+  version: 'v1.1',
+  validationAccuracy: '97.81%',
+  balancedAccuracy: '98.12%',
   trainSamples: 1280,
   valSamples: 320,
   inputSize: '128 × 128 grayscale',

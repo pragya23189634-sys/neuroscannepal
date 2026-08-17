@@ -12,5 +12,8 @@ def test_create_patient_prototype(tmp_path):
 
     assert len(results) == 100
     assert report_path.exists()
-    assert "100 patients" in report_path.read_text(encoding="utf-8")
+    text = report_path.read_text(encoding="utf-8")
+    assert "Patient count: 100" in text
     assert results[0]["status"] in {"normal", "abnormal"}
+    csv_path = report_path.with_suffix(".csv")
+    assert csv_path.exists()

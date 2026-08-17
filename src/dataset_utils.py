@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
-import random
 
 import numpy as np
 import torch
@@ -33,6 +32,41 @@ def build_scan_paths(normal_dir: Path, abnormal_dir: Path) -> Tuple[List[Path], 
     abnormal_paths = list_scan_files(abnormal_dir)
     labels = [0] * len(normal_paths) + [1] * len(abnormal_paths)
     return normal_paths + abnormal_paths, labels
+
+
+def build_source_split_paths(
+    normal_dir: Path,
+    abnormal_dir: Path,
+) -> Tuple[List[Path], List[int], List[Path], List[int]] | None:
+    """Respect the dataset's original Tr-/Te- split when it is available."""
+    paths, labels = build_scan_paths(normal_dir, abnormal_dir)
+    train_paths: List[Path] = []
+    train_labels: List[int] = []
+    test_paths: List[Path] = []
+    test_labels: List[int] = []
+    unknown_count = 0
+
+    for path, label in zip(paths, labels):
+        name = path.name.lower()
+        if name.startswith("tr-"):
+            train_paths.append(path)
+            train_labels.append(label)
+        elif name.startswith("te-"):
+            test_paths.append(path)
+            test_labels.append(label)
+        else:
+            unknown_count += 1
+
+    covered = len(train_paths) + len(test_paths)
+    if (
+        covered < max(1, int(len(paths) * 0.8))
+        or unknown_count > len(paths) * 0.2
+        or len(set(train_labels)) < 2
+        or len(set(test_labels)) < 2
+    ):
+        return None
+
+    return train_paths, train_labels, test_paths, test_labels
 
 
 def build_processed_paths(processed_root: Path) -> Tuple[List[Path], List[int]]:
@@ -65,19 +99,30 @@ def _resize_scan(scan: np.ndarray, image_size: Tuple[int, int] = IMAGE_SIZE) -> 
     return np.asarray(pil, dtype=np.float32) / 255.0
 
 
-def _augment_scan(scan: np.ndarray, index: int, seed: int) -> np.ndarray:
-    rng = random.Random(seed + index)
+def _augment_scan(scan: np.ndarray, _index: int, _seed: int) -> np.ndarray:
+    """Apply a new, anatomically plausible augmentation on every access."""
+    rng = np.random.default_rng()
 
+    # Left/right orientation does not change the binary abnormality label.
     if rng.random() < 0.5:
         scan = np.fliplr(scan)
+
+    # Avoid vertical flips and 90-degree rotations, which are unrealistic for
+    # consistently oriented clinical brain MRI exports.
+    if rng.random() < 0.7:
+        angle = float(rng.uniform(-12.0, 12.0))
+        pil = Image.fromarray((np.clip(scan, 0.0, 1.0) * 255.0).astype(np.uint8), mode="L")
+        pil = pil.rotate(angle, resample=Image.BILINEAR, fillcolor=0)
+        scan = np.asarray(pil, dtype=np.float32) / 255.0
+
     if rng.random() < 0.5:
-        scan = np.flipud(scan)
-    if rng.random() < 0.5:
-        scan = np.rot90(scan, k=rng.choice([0, 1, 2, 3]))
-    if rng.random() < 0.4:
-        scan = scan + rng.normalvariate(0.0, 0.02)
-        scan = np.clip(scan, 0.0, 1.0)
-    return scan
+        gamma = float(rng.uniform(0.85, 1.15))
+        scan = np.power(np.clip(scan, 0.0, 1.0), gamma)
+
+    if rng.random() < 0.35:
+        scan = scan + rng.normal(0.0, 0.015, size=scan.shape).astype(np.float32)
+
+    return np.clip(scan, 0.0, 1.0)
 
 
 def _prepare_tensor(scan: np.ndarray) -> torch.Tensor:

@@ -17,6 +17,7 @@ logger = get_logger("pipeline")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_PATH = PROJECT_ROOT / "models" / "cnn_baseline.pth"
+CALIBRATION_PATH = PROJECT_ROOT / "models" / "cnn_baseline_calibration.json"
 RESULTS_ROOT = PROJECT_ROOT / "results" / "jobs"
 
 IMAGE_SIZE = (128, 128)
@@ -122,15 +123,34 @@ def _run_detection(scan: np.ndarray) -> Dict[str, Any]:
     tensor, _ = _prepare_tensor(scan)
     with torch.no_grad():
         logits = model(tensor)
-        probs = torch.softmax(logits, dim=1)[0]
+        raw_probs = torch.softmax(logits, dim=1)[0]
+        temperature = 1.0
+        uncertainty_threshold = 0.70
+        if CALIBRATION_PATH.exists():
+            try:
+                calibration = json.loads(CALIBRATION_PATH.read_text(encoding="utf-8"))
+                temperature = max(float(calibration.get("temperature", 1.0)), 0.05)
+                uncertainty_threshold = float(calibration.get("uncertainty_threshold", 0.70))
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                logger.warning("Could not read calibration file; using uncalibrated confidence")
+        probs = torch.softmax(logits / temperature, dim=1)[0]
         pred_index = int(torch.argmax(probs).item())
         confidence = float(probs[pred_index].item())
+        raw_confidence = float(raw_probs[pred_index].item())
 
     label = "abnormal" if pred_index == 1 else "normal"
     return {
         "label": label,
         "class_index": pred_index,
         "confidence": round(confidence, 4),
+        "raw_confidence": round(raw_confidence, 4),
+        "calibration_temperature": round(temperature, 4),
+        "review_required": confidence < uncertainty_threshold,
+        "confidence_band": (
+            "high" if confidence >= 0.85 else
+            "moderate" if confidence >= uncertainty_threshold else
+            "uncertain"
+        ),
         "probabilities": {
             "normal": round(float(probs[0].item()), 4),
             "abnormal": round(float(probs[1].item()), 4),

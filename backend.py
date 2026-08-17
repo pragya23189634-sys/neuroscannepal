@@ -1,4 +1,4 @@
-"""NeuroScan Nepal FastAPI backend with full pipeline logging."""
+"""NeuroScan Nepal FastAPI backend with full pipeline logging and RBAC."""
 
 from __future__ import annotations
 
@@ -9,18 +9,33 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, Field
 
-# Make src/ importable from project root
 PROJECT_ROOT = Path(__file__).resolve().parent
 SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from auth import (  # noqa: E402
+    ROLE_LABELS,
+    ROLES,
+    authenticate_user,
+    create_access_token,
+    create_user,
+    get_current_user,
+    get_user_by_email,
+    get_user_by_id,
+    get_user_by_patient_id,
+    init_db,
+    list_patients,
+    require_roles,
+    seed_demo_users,
+)
 from logging_config import setup_logging  # noqa: E402
 
 logger = setup_logging(log_dir=PROJECT_ROOT, level=os.getenv("NEUROSCAN_LOG_LEVEL", "INFO"))
@@ -34,7 +49,7 @@ except ImportError as exc:
     logger.error("Pipeline modules unavailable: %s", exc)
     logger.error("Run backend with Python 3.11+ and install torch: pip install torch torchvision")
 
-app = FastAPI(title="NeuroScan Nepal API", version="1.0.0")
+app = FastAPI(title="NeuroScan Nepal API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -62,6 +77,28 @@ else:
     JOBS = {}
 
 JOBS_LOCK = threading.RLock()
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str = Field(min_length=6)
+    full_name: str
+    role: str
+
+
+class DoctorReviewRequest(BaseModel):
+    recommendation: str = Field(min_length=10)
+    clinical_notes: Optional[str] = None
+
+
+class RadiologistNotesRequest(BaseModel):
+    recommendation: str = Field(min_length=10)
+    clinical_notes: Optional[str] = None
 
 
 def save_jobs() -> None:
@@ -95,8 +132,46 @@ def _on_pipeline_stage(job_id: str, step: str, status: str, record: Dict[str, An
         save_jobs()
 
 
+def _resolve_patient(patient_ref: str) -> Dict[str, Any]:
+    patient = get_user_by_id(patient_ref) or get_user_by_patient_id(patient_ref)
+    if not patient or patient["role"] != "patient":
+        raise HTTPException(status_code=400, detail="Invalid patient ID")
+    return patient
+
+
+def _user_can_access_job(user: Dict[str, Any], job: Dict[str, Any]) -> bool:
+    role = user["role"]
+    if role == "radiologist":
+        return True
+    if role == "doctor":
+        return job.get("status") == "completed"
+    if role == "patient":
+        return job.get("patient_user_id") == user["id"]
+    return False
+
+
+def _filter_jobs_for_user(user: Dict[str, Any]) -> List[Dict[str, Any]]:
+    with JOBS_LOCK:
+        jobs = list(JOBS.values())
+    role = user["role"]
+    if role == "radiologist":
+        return jobs
+    if role == "doctor":
+        return [j for j in jobs if j.get("status") == "completed"]
+    if role == "patient":
+        return [j for j in jobs if j.get("patient_user_id") == user["id"]]
+    return []
+
+
+def _get_job_or_404(job_id: str) -> Dict[str, Any]:
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+
 def process_job(job_id: str, filepath: str) -> None:
-    """Run the full MRI pipeline and stream progress to terminal + job store."""
     logger.info("[job=%s] Worker thread started", job_id[:8])
     _update_job(job_id, status="running", current_step="upload", step_status="RUNNING", started_at=time.time())
 
@@ -132,14 +207,16 @@ def process_job(job_id: str, filepath: str) -> None:
 
 @app.on_event("startup")
 async def startup_event() -> None:
+    init_db()
+    seed_demo_users()
     logger.info("=" * 72)
-    logger.info("NeuroScan backend starting")
+    logger.info("NeuroScan backend starting (RBAC enabled)")
     logger.info("Project root : %s", PROJECT_ROOT)
     logger.info("Upload dir   : %s", UPLOAD_DIR)
     logger.info("Results dir  : %s", RESULTS_DIR)
     logger.info("Pipeline     : %s", "READY" if PIPELINE_AVAILABLE else "UNAVAILABLE")
-    logger.info("Log level    : %s", os.getenv("NEUROSCAN_LOG_LEVEL", "INFO"))
-    logger.info("Endpoints    : GET /health  POST /upload  GET /jobs  GET /jobs/{{id}}  GET /pipeline/steps")
+    logger.info("Roles        : %s", ", ".join(ROLES))
+    logger.info("Demo logins  : radiologist@neuroscan.np / doctor@neuroscan.np / patient@neuroscan.np")
     logger.info("=" * 72)
 
 
@@ -151,30 +228,87 @@ async def health_check():
         "pipeline_ready": PIPELINE_AVAILABLE,
         "model_available": model_path.exists(),
         "jobs_count": len(JOBS),
+        "auth_enabled": True,
     }
 
 
 @app.get("/pipeline/steps")
-async def pipeline_steps():
+async def pipeline_steps(user: Dict[str, Any] = Depends(get_current_user)):
     return {"steps": PIPELINE_STEPS, "count": len(PIPELINE_STEPS)}
 
 
+@app.post("/auth/login")
+async def login(body: LoginRequest):
+    user = authenticate_user(body.email, body.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    token = create_access_token(user)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user,
+        "role_label": ROLE_LABELS.get(user["role"], user["role"]),
+    }
+
+
+@app.post("/auth/register")
+async def register(body: RegisterRequest):
+    if body.role not in ROLES:
+        raise HTTPException(status_code=400, detail=f"Role must be one of: {', '.join(ROLES)}")
+    if get_user_by_email(body.email):
+        raise HTTPException(status_code=409, detail="Email already registered")
+    try:
+        user = create_user(body.email, body.password, body.full_name, body.role)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    token = create_access_token(user)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user,
+        "role_label": ROLE_LABELS.get(user["role"], user["role"]),
+    }
+
+
+@app.get("/auth/me")
+async def me(user: Dict[str, Any] = Depends(get_current_user)):
+    return {
+        **user,
+        "role_label": ROLE_LABELS.get(user["role"], user["role"]),
+    }
+
+
+@app.get("/auth/patients")
+async def patients(user: Dict[str, Any] = Depends(require_roles("radiologist", "doctor"))):
+    return list_patients()
+
+
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    file: UploadFile = File(...),
+    patient_id: str = Form(...),
+    user: Dict[str, Any] = Depends(require_roles("radiologist")),
+):
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 
+    patient = _resolve_patient(patient_id)
     job_id = str(uuid.uuid4())
     save_name = f"{job_id}_{file.filename}"
     dest_path = UPLOAD_DIR / save_name
 
-    logger.info("[job=%s] UPLOAD received | file=%s", job_id[:8], file.filename)
+    logger.info(
+        "[job=%s] UPLOAD by radiologist %s for patient %s | file=%s",
+        job_id[:8],
+        user["email"],
+        patient["patient_unique_id"],
+        file.filename,
+    )
 
     try:
         contents = await file.read()
         dest_path.write_bytes(contents)
         await file.close()
-        logger.info("[job=%s] UPLOAD saved | path=%s | bytes=%d", job_id[:8], dest_path.name, len(contents))
     except Exception:
         logger.exception("[job=%s] UPLOAD failed while writing file", job_id[:8])
         raise HTTPException(status_code=500, detail="Failed to save uploaded file")
@@ -188,38 +322,110 @@ async def upload_file(file: UploadFile = File(...)):
         "step_status": "OK",
         "stages": [],
         "created_at": time.time(),
+        "uploaded_by_user_id": user["id"],
+        "uploaded_by_name": user["full_name"],
+        "patient_user_id": patient["id"],
+        "patient_unique_id": patient["patient_unique_id"],
+        "patient_name": patient["full_name"],
+        "doctor_recommendation": None,
+        "radiologist_notes": None,
     }
     try:
         with JOBS_LOCK:
             JOBS[job_id] = job_record
             save_jobs()
-        logger.info("[job=%s] Job record created — launching pipeline thread", job_id[:8])
     except Exception:
-        logger.exception("[job=%s] Failed to create job record", job_id[:8])
         dest_path.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail="Failed to create job record")
 
-    thread = threading.Thread(target=process_job, args=(job_id, str(dest_path)), daemon=True, name=f"pipeline-{job_id[:8]}")
+    thread = threading.Thread(
+        target=process_job,
+        args=(job_id, str(dest_path)),
+        daemon=True,
+        name=f"pipeline-{job_id[:8]}",
+    )
     thread.start()
-    return JSONResponse(status_code=201, content={"job_id": job_id})
+    return JSONResponse(
+        status_code=201,
+        content={
+            "job_id": job_id,
+            "patient_unique_id": patient["patient_unique_id"],
+            "patient_name": patient["full_name"],
+        },
+    )
 
 
 @app.get("/jobs")
-async def list_jobs():
-    with JOBS_LOCK:
-        jobs = list(JOBS.values())
-    logger.debug("Listed %d job(s)", len(jobs))
+async def list_jobs(user: Dict[str, Any] = Depends(get_current_user)):
+    jobs = _filter_jobs_for_user(user)
+    logger.debug("Listed %d job(s) for role=%s", len(jobs), user["role"])
     return jobs
 
 
 @app.get("/jobs/{job_id}")
-async def get_job(job_id: str):
-    with JOBS_LOCK:
-        job = JOBS.get(job_id)
-    if not job:
-        logger.warning("Job lookup failed | id=%s", job_id[:8])
-        raise HTTPException(status_code=404, detail="Job not found")
+async def get_job(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
+    job = _get_job_or_404(job_id)
+    if not _user_can_access_job(user, job):
+        raise HTTPException(status_code=403, detail="Access denied")
     return job
+
+
+@app.get("/jobs/{job_id}/scan-image")
+async def get_scan_image(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
+    job = _get_job_or_404(job_id)
+    if not _user_can_access_job(user, job):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    scan_path = UPLOAD_DIR / job["filename"]
+    if not scan_path.exists():
+        raise HTTPException(status_code=404, detail="Scan image not found")
+
+    media = "image/png" if scan_path.suffix.lower() == ".png" else "image/jpeg"
+    return FileResponse(scan_path, media_type=media, filename=job.get("original_filename", scan_path.name))
+
+
+@app.post("/jobs/{job_id}/doctor-review")
+async def submit_doctor_review(
+    job_id: str,
+    body: DoctorReviewRequest,
+    user: Dict[str, Any] = Depends(require_roles("doctor")),
+):
+    job = _get_job_or_404(job_id)
+    if job.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Job must be completed before doctor review")
+
+    review = {
+        "doctor_id": user["id"],
+        "doctor_name": user["full_name"],
+        "recommendation": body.recommendation.strip(),
+        "clinical_notes": (body.clinical_notes or "").strip() or None,
+        "updated_at": time.time(),
+    }
+    _update_job(job_id, doctor_recommendation=review)
+    logger.info("[job=%s] Doctor review submitted by %s", job_id[:8], user["email"])
+    return {"status": "ok", "doctor_recommendation": review}
+
+
+@app.post("/jobs/{job_id}/radiologist-notes")
+async def submit_radiologist_notes(
+    job_id: str,
+    body: RadiologistNotesRequest,
+    user: Dict[str, Any] = Depends(require_roles("radiologist")),
+):
+    job = _get_job_or_404(job_id)
+    if job.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Job must be completed before adding radiologist notes")
+
+    notes = {
+        "radiologist_id": user["id"],
+        "radiologist_name": user["full_name"],
+        "recommendation": body.recommendation.strip(),
+        "clinical_notes": (body.clinical_notes or "").strip() or None,
+        "updated_at": time.time(),
+    }
+    _update_job(job_id, radiologist_notes=notes)
+    logger.info("[job=%s] Radiologist notes submitted by %s", job_id[:8], user["email"])
+    return {"status": "ok", "radiologist_notes": notes}
 
 
 @app.middleware("http")

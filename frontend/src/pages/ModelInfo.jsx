@@ -27,6 +27,7 @@ export default function ModelInfo() {
           <h3 className="text-lg font-semibold text-slate-900">Training & evaluation</h3>
           <dl className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between border-b border-slate-100 pb-2"><dt className="text-slate-500">Validation accuracy</dt><dd className="font-semibold text-emerald-700">{MODEL_INFO.validationAccuracy}</dd></div>
+            <div className="flex justify-between border-b border-slate-100 pb-2"><dt className="text-slate-500">Balanced accuracy</dt><dd className="font-semibold text-emerald-700">{MODEL_INFO.balancedAccuracy}</dd></div>
             <div className="flex justify-between border-b border-slate-100 pb-2"><dt className="text-slate-500">Training samples</dt><dd className="font-medium text-slate-900">{MODEL_INFO.trainSamples}</dd></div>
             <div className="flex justify-between border-b border-slate-100 pb-2"><dt className="text-slate-500">Validation samples</dt><dd className="font-medium text-slate-900">{MODEL_INFO.valSamples}</dd></div>
             <div className="flex justify-between border-b border-slate-100 pb-2"><dt className="text-slate-500">Dataset size</dt><dd className="font-medium text-slate-900">1,600 MRI images</dd></div>

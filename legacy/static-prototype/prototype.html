@@ -37,7 +37,10 @@
     <section class="panel analysis-panel">
       <div class="pill">🔬 Review MRI case</div>
       <h3>Upload or compare a case</h3>
-      <p>Use the controls below to switch between sample cases or upload a local scan for demonstration purposes.</p>
+      <p>Use the controls below to switch between sample cases or upload a local scan. Sign in as radiologist to run live AI analysis.</p>
+      <div id="auth-bar" style="margin:12px 0;padding:12px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;font-size:0.92rem;color:#475569;">
+        Checking session…
+      </div>
       <div class="analysis-grid">
         <div class="analysis-card">
           <div class="upload-box">
@@ -47,6 +50,10 @@
               <button class="btn-secondary sample-btn" data-case="normal">Load normal sample</button>
               <button class="btn-secondary sample-btn" data-case="glioma">Load abnormal sample</button>
             </div>
+            <label style="display:block;margin-top:10px;font-size:0.9rem;color:#475569;">
+              Patient for upload
+              <select id="patient-select" style="display:block;width:100%;margin-top:6px;padding:8px;border-radius:8px;border:1px solid #cbd5e1;"></select>
+            </label>
             <div id="upload-status" style="margin-top:8px; color:var(--muted); font-size:0.95rem;"></div>
           </div>
           <div class="preview-frame">
@@ -62,11 +69,11 @@
             </div>
             <div style="text-align:right;">
               <div style="font-size:.75rem; color:#64748b">Confidence</div>
-              <div id="confidence-value" style="font-weight:700; font-size:1.05rem;">94%</div>
+              <div id="confidence-value" style="font-weight:700; font-size:1.05rem;">98%</div>
             </div>
           </div>
 
-          <div class="confidence-bar" aria-hidden="true"><span id="confidence-bar-fill" style="width:94%"></span></div>
+          <div class="confidence-bar" aria-hidden="true"><span id="confidence-bar-fill" style="width:98%"></span></div>
 
           <div class="info-grid">
             <div class="info-box">
@@ -108,6 +115,11 @@
   </div>
 
   <script>
+    const API_BASE = 'http://127.0.0.1:8000';
+    const TOKEN_KEY = 'neuroscan_prototype_token';
+    let authToken = sessionStorage.getItem(TOKEN_KEY) || '';
+    let patients = [];
+
     const sampleCases = {
       normal: {
         title: 'Normal case',
@@ -128,6 +140,84 @@
         image: 'assets/samples/glioma.jpg'
       }
     };
+
+    function authHeaders(extra = {}) {
+      const headers = { ...extra };
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
+      return headers;
+    }
+
+    async function apiFetch(path, options = {}) {
+      const res = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers: authHeaders(options.headers || {}),
+      });
+      return res;
+    }
+
+    async function ensureRadiologistSession() {
+      const authBar = document.getElementById('auth-bar');
+      const patientSelect = document.getElementById('patient-select');
+
+      if (authToken) {
+        const meRes = await apiFetch('/auth/me');
+        if (meRes.ok) {
+          const me = await meRes.json();
+          authBar.textContent = `Signed in as ${me.full_name} (${me.role}). Live uploads enabled.`;
+          await loadPatients();
+          return true;
+        }
+        authToken = '';
+        sessionStorage.removeItem(TOKEN_KEY);
+      }
+
+      authBar.textContent = 'Signing in as demo radiologist…';
+      const loginRes = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'radiologist@neuroscan.np',
+          password: 'radiologist123',
+        }),
+      });
+
+      if (!loginRes.ok) {
+        authBar.innerHTML = 'Could not sign in. Start the backend, then refresh. Or use the main app at <a href="http://127.0.0.1:3000">127.0.0.1:3000</a>.';
+        patientSelect.innerHTML = '<option value="">Login required</option>';
+        return false;
+      }
+
+      const loginData = await loginRes.json();
+      authToken = loginData.access_token;
+      sessionStorage.setItem(TOKEN_KEY, authToken);
+      authBar.textContent = `Signed in as ${loginData.user.full_name} (radiologist). Live uploads enabled.`;
+      await loadPatients();
+      return true;
+    }
+
+    async function loadPatients() {
+      const patientSelect = document.getElementById('patient-select');
+      const res = await apiFetch('/auth/patients');
+      if (!res.ok) {
+        patientSelect.innerHTML = '<option value="">No patients available</option>';
+        return;
+      }
+      patients = await res.json();
+      if (!patients.length) {
+        patientSelect.innerHTML = '<option value="">Register a patient first</option>';
+        return;
+      }
+      patientSelect.innerHTML = patients.map((p) =>
+        `<option value="${p.id}">${p.full_name} — ${p.patient_unique_id}</option>`
+      ).join('');
+    }
+
+    function getJobScore(result) {
+      if (!result) return 0;
+      return typeof result.score === 'number' ? result.score
+        : typeof result.confidence === 'number' ? result.confidence
+        : 0;
+    }
 
     function applyCase(caseName) {
       const selectedCase = sampleCases[caseName];
@@ -152,6 +242,13 @@
       const file = event.target.files[0];
       if (!file) return;
 
+      const ready = await ensureRadiologistSession();
+      const patientId = document.getElementById('patient-select').value;
+      if (!ready || !patientId) {
+        document.getElementById('upload-status').textContent = 'Sign in and select a patient before uploading.';
+        return;
+      }
+
       // Preview immediately
       const reader = new FileReader();
       reader.onload = () => {
@@ -161,55 +258,73 @@
         document.getElementById('result-chip').textContent = 'Uploading...';
         document.getElementById('confidence-value').textContent = '--';
         document.getElementById('confidence-bar-fill').style.width = '0%';
-        document.getElementById('prediction-label').textContent = 'Pending review';
+        document.getElementById('prediction-label').textContent = 'Processing…';
         document.getElementById('risk-level').textContent = 'Pending';
-        document.getElementById('summary-text').textContent = 'Uploading and queued for processing...';
-        document.getElementById('next-step-text').textContent = '';
+        document.getElementById('summary-text').textContent = 'Uploading and running AI pipeline (usually 10–30 seconds)…';
+        document.getElementById('next-step-text').textContent = 'Please wait while the backend completes all 8 pipeline stages.';
       };
       reader.readAsDataURL(file);
 
       const statusEl = document.getElementById('upload-status');
-      statusEl.textContent = 'Uploading...';
+      statusEl.textContent = 'Uploading…';
 
       try {
         const form = new FormData();
         form.append('file', file, file.name);
-        const resp = await fetch('http://127.0.0.1:8000/upload', { method: 'POST', body: form });
+        form.append('patient_id', patientId);
+        const resp = await fetch(`${API_BASE}/upload`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: form,
+        });
         if (!resp.ok) {
           const txt = await resp.text();
           statusEl.textContent = `Upload failed: ${resp.status} ${txt}`;
           document.getElementById('result-chip').textContent = 'Upload failed';
+          document.getElementById('summary-text').textContent = 'Upload was rejected. Make sure the backend is running and you are signed in as radiologist.';
           return;
         }
         const data = await resp.json();
         const jobId = data.job_id;
-        statusEl.textContent = `Upload succeeded — job ${jobId} created. Waiting for processing...`;
-        document.getElementById('result-chip').textContent = 'Queued';
+        statusEl.textContent = `Upload OK — job ${jobId.slice(0, 8)}… Pipeline running…`;
+        document.getElementById('result-chip').textContent = 'Processing';
 
-        // Poll job status
         const poll = async () => {
           try {
-            const r = await fetch(`http://127.0.0.1:8000/jobs/${jobId}`);
+            const r = await apiFetch(`/jobs/${jobId}`);
             if (!r.ok) {
-              statusEl.textContent = `Job not found (${r.status})`;
+              statusEl.textContent = `Job lookup failed (${r.status})`;
               return;
             }
             const job = await r.json();
-            statusEl.textContent = `Job ${jobId}: ${job.status}`;
+            const step = job.current_step || 'pipeline';
+            statusEl.textContent = `Job ${jobId.slice(0, 8)}… — ${job.status} (${step})`;
+
             if (job.status === 'completed') {
-              const score = job.result && job.result.score ? job.result.score : 0.0;
+              const result = job.result || {};
+              const score = getJobScore(result);
               const pct = Math.round(score * 100);
+              const label = result.label || (score > 0.5 ? 'abnormal' : 'normal');
+              const abnormal = label === 'abnormal' || score > 0.5;
               document.getElementById('confidence-value').textContent = `${pct}%`;
               document.getElementById('confidence-bar-fill').style.width = `${pct}%`;
-              document.getElementById('prediction-label').textContent = score > 0.5 ? 'Abnormal' : 'Normal';
-              document.getElementById('risk-level').textContent = score > 0.5 ? 'High' : 'Low';
-              document.getElementById('result-chip').textContent = score > 0.5 ? 'High concern' : 'Low risk';
-              statusEl.textContent = `Job ${jobId} completed.`;
-            } else if (job.status === 'running' || job.status === 'pending') {
-              setTimeout(poll, 1500);
+              document.getElementById('prediction-label').textContent = abnormal ? 'Abnormal' : 'Normal';
+              document.getElementById('risk-level').textContent = abnormal ? 'High' : 'Low';
+              document.getElementById('result-chip').textContent = abnormal ? 'High concern' : 'Low risk';
+              document.getElementById('summary-text').textContent = result.rag_advisory?.summary
+                || (abnormal
+                  ? 'Possible abnormality detected. Recommend specialist review.'
+                  : 'No major abnormality detected in this scan slice.');
+              document.getElementById('next-step-text').textContent = result.rag_advisory?.summary
+                ? 'Review radiologist and doctor recommendations in the main app.'
+                : (abnormal ? 'Escalate for neurology/oncology review.' : 'Continue routine clinical follow-up.');
+              statusEl.textContent = `Completed in ${result.elapsed_seconds || '—'}s · Job ${jobId.slice(0, 8)}…`;
+            } else if (job.status === 'failed') {
+              document.getElementById('result-chip').textContent = 'Failed';
+              document.getElementById('summary-text').textContent = job.error || 'Pipeline failed.';
+              statusEl.textContent = `Job failed: ${job.error || 'unknown error'}`;
             } else {
-              // unknown state
-              setTimeout(poll, 2000);
+              setTimeout(poll, 1500);
             }
           } catch (err) {
             statusEl.textContent = 'Error polling job: ' + err.message;
@@ -224,6 +339,7 @@
 
     // initialize carousel and bind controls
     (function(){
+      ensureRadiologistSession();
       applyCase('normal');
       const carouselImages = ['assets/samples/notumor.jpg','assets/samples/glioma.jpg'];
       const carouselCases = ['normal','glioma'];
