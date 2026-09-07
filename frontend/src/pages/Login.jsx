@@ -1,12 +1,42 @@
 import React, { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import {
+  ArrowRightIcon,
+  BeakerIcon,
+  ChevronRightIcon,
+  EnvelopeIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  KeyIcon,
+  LockClosedIcon,
+  UserIcon,
+} from '@heroicons/react/24/outline'
+import LoginBrandPanel from '../components/LoginBrandPanel'
 import { useAuth } from '../context/AuthContext'
-import PageHeader from '../components/PageHeader'
+import { LOGIN } from '../content/siteCopy'
 
 const DEMO_ACCOUNTS = [
-  { role: 'Radiologist', email: 'radiologist@neuroscan.np', password: 'radiologist123' },
-  { role: 'Doctor', email: 'doctor@neuroscan.np', password: 'doctor123' },
-  { role: 'Patient', email: 'patient@neuroscan.np', password: 'patient123' },
+  {
+    role: 'Radiologist',
+    email: 'radiologist@neuroscan.np',
+    password: 'radiologist123',
+    icon: BeakerIcon,
+    color: 'bg-violet-100 text-violet-700',
+  },
+  {
+    role: 'Doctor',
+    email: 'doctor@neuroscan.np',
+    password: 'doctor123',
+    icon: UserIcon,
+    color: 'bg-sky-100 text-sky-700',
+  },
+  {
+    role: 'Patient',
+    email: 'patient@neuroscan.np',
+    password: 'patient123',
+    icon: UserIcon,
+    color: 'bg-emerald-100 text-emerald-700',
+  },
 ]
 
 export default function Login() {
@@ -15,11 +45,17 @@ export default function Login() {
   const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   if (isAuthenticated) {
-    const dest = user?.role === 'patient' ? '/my-records' : user?.role === 'doctor' ? '/doctor-review' : location.state?.from || '/'
+    const dest =
+      user?.role === 'patient'
+        ? '/my-records'
+        : user?.role === 'doctor'
+          ? '/doctor-review'
+          : location.state?.from || '/'
     return <Navigate to={dest} replace />
   }
 
@@ -30,9 +66,11 @@ export default function Login() {
     try {
       const loggedIn = await login(email, password)
       const dest =
-        loggedIn.role === 'patient' ? '/my-records' :
-        loggedIn.role === 'doctor' ? '/doctor-review' :
-        location.state?.from || '/'
+        loggedIn.role === 'patient'
+          ? '/my-records'
+          : loggedIn.role === 'doctor'
+            ? '/doctor-review'
+            : location.state?.from || '/'
       navigate(dest, { replace: true })
     } catch (err) {
       setError(err.message)
@@ -44,68 +82,119 @@ export default function Login() {
   const fillDemo = (account) => {
     setEmail(account.email)
     setPassword(account.password)
+    setError('')
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
-      <PageHeader
-        eyebrow="Secure access"
-        title="Sign in to NeuroScan"
-        description="Radiologists upload scans and run AI analysis. Doctors review images and add clinical recommendations. Patients view their reports."
-      />
+    <div className="login-page">
+      <LoginBrandPanel />
 
-      <form onSubmit={handleSubmit} className="card space-y-4 p-6">
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
-        )}
+      <div className="login-panel-right">
+        <div className="login-panel-right-inner">
+          <h1 className="login-form-title">{LOGIN.formTitle}</h1>
+          <p className="login-form-subtitle">{LOGIN.formHint}</p>
 
-        <label className="block text-sm">
-          <span className="font-medium text-slate-700">Email</span>
-          <input
-            type="email"
-            required
-            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
+          <form onSubmit={handleSubmit} className="login-form">
+            {error && (
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {error}
+              </div>
+            )}
 
-        <label className="block text-sm">
-          <span className="font-medium text-slate-700">Password</span>
-          <input
-            type="password"
-            required
-            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
+            <label className="login-label login-field-group">
+              <span className="login-label-text">Email</span>
+              <div className="relative">
+                <EnvelopeIcon className="login-input-icon" />
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="you@neuroscan.np"
+                  className="login-field pl-10"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </label>
 
-        <button type="submit" className="btn-primary w-full" disabled={submitting}>
-          {submitting ? 'Signing in…' : 'Sign in'}
-        </button>
+            <label className="login-label login-field-group block">
+              <span className="login-label-text">Password</span>
+              <div className="relative">
+                <LockClosedIcon className="login-input-icon" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  className="login-field pl-10 pr-10"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="login-password-toggle"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <EyeSlashIcon className="h-[18px] w-[18px]" />
+                  ) : (
+                    <EyeIcon className="h-[18px] w-[18px]" />
+                  )}
+                </button>
+              </div>
+            </label>
 
-        <p className="text-center text-sm text-slate-600">
-          New patient? <Link to="/register" className="font-medium text-primary hover:underline">Register here</Link>
-        </p>
-      </form>
-
-      <section className="card p-6">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Demo accounts</h3>
-        <div className="mt-3 space-y-2">
-          {DEMO_ACCOUNTS.map((account) => (
-            <button
-              key={account.email}
-              type="button"
-              onClick={() => fillDemo(account)}
-              className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm transition hover:border-primary/30 hover:bg-blue-50/40"
-            >
-              <span className="font-medium text-slate-900">{account.role}</span>
-              <span className="text-slate-500">{account.email}</span>
+            <button type="submit" className="login-submit-btn" disabled={submitting}>
+              {submitting ? (
+                'Signing in…'
+              ) : (
+                <>
+                  Sign in
+                  <ArrowRightIcon className="h-4 w-4" />
+                </>
+              )}
             </button>
-          ))}
+
+            <p className="login-register-link">
+              {LOGIN.registerPrompt}{' '}
+              <Link to="/register">{LOGIN.registerLink}</Link>
+            </p>
+          </form>
+
+          <div className="login-divider" />
+
+          <div className="login-dev-card">
+            <div className="flex items-center gap-2">
+              <KeyIcon className="h-4 w-4 text-[#5D718A]" strokeWidth={1.5} />
+              <p className="text-sm font-semibold text-[#10233D]">{LOGIN.demoTitle}</p>
+            </div>
+            <p className="mt-0.5 text-xs text-[#5D718A]">{LOGIN.demoSubtitle}</p>
+            <div className="mt-2 divide-y divide-[#D8D2C8]/80">
+              {DEMO_ACCOUNTS.map((account) => {
+                const Icon = account.icon
+                return (
+                  <button
+                    key={account.email}
+                    type="button"
+                    onClick={() => fillDemo(account)}
+                    className="login-dev-row"
+                  >
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${account.color}`}>
+                      <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="text-[13px] font-medium text-[#10233D]">{account.role}</p>
+                      <p className="truncate font-mono text-[10px] text-[#5D718A]">{account.email}</p>
+                    </div>
+                    <ChevronRightIcon className="h-4 w-4 shrink-0 text-[#5D718A]/50" />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
   )
 }

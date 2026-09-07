@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CheckCircleIcon, ClockIcon } from '@heroicons/react/24/outline'
 import { PIPELINE_STEPS } from '../config'
+import { PAGES } from '../content/siteCopy'
 import PageHeader from '../components/PageHeader'
 import StatusBadge from '../components/StatusBadge'
 import { formatConfidencePercent } from '../utils/jobResult'
@@ -48,9 +49,9 @@ export default function Processing() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Live pipeline"
-        title="Processing status"
-        description="Real-time view of the eight-stage integration pipeline. Status updates every 2 seconds."
+        eyebrow={PAGES.processing.eyebrow}
+        title={PAGES.processing.title}
+        description={PAGES.processing.description}
         action={job?.status === 'completed' && (
           <Link to={`/results?job=${jobId}`} className="btn-primary">View results</Link>
         )}

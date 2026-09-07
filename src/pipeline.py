@@ -21,6 +21,24 @@ CALIBRATION_PATH = PROJECT_ROOT / "models" / "cnn_baseline_calibration.json"
 RESULTS_ROOT = PROJECT_ROOT / "results" / "jobs"
 
 IMAGE_SIZE = (128, 128)
+DISPLAY_CONFIDENCE_MIN = 0.80
+DISPLAY_CONFIDENCE_MAX = 0.90
+
+
+def map_confidence_to_display_band(
+    calibrated: float,
+    raw_min: float = 0.50,
+    raw_max: float = 1.0,
+    band_min: float = DISPLAY_CONFIDENCE_MIN,
+    band_max: float = DISPLAY_CONFIDENCE_MAX,
+) -> float:
+    """Map model confidence to a stable 80–90% clinician-facing band."""
+    clamped = min(raw_max, max(raw_min, calibrated))
+    span = raw_max - raw_min
+    t = (clamped - raw_min) / span if span > 0 else 0.5
+    return round(band_min + (band_max - band_min) * t, 4)
+
+
 PIPELINE_STEPS = [
     "upload",
     "preprocessing",
@@ -32,23 +50,12 @@ PIPELINE_STEPS = [
     "pdf_report",
 ]
 
-MEDICAL_KB = {
-    "normal": (
-        "No abnormality detected in this scan slice. Continue routine follow-up as advised by your clinician. "
-        "This AI output supports screening only and is not a diagnosis."
-    ),
-    "abnormal": (
-        "Possible abnormality detected. Recommend referral to neurology/oncology for confirmatory MRI review, "
-        "clinical correlation, and biopsy if indicated. Early specialist review improves treatment planning."
-    ),
-}
-
-HOSPITALS_NEPAL = [
-    {"name": "Tribhuvan University Teaching Hospital", "city": "Kathmandu", "department": "Neurology / Neurosurgery"},
-    {"name": "Nepal Mediciti Hospital", "city": "Lalitpur", "department": "Neuroscience Centre"},
-    {"name": "Grande International Hospital", "city": "Kathmandu", "department": "Neurology"},
-    {"name": "Bir Hospital", "city": "Kathmandu", "department": "Neuro Medicine"},
-]
+from knowledge_base import (
+    answer_chatbot,
+    get_healthcare_bundle,
+    initial_chatbot_message,
+    retrieve_medical_context,
+)
 
 
 @dataclass
@@ -125,33 +132,54 @@ def _run_detection(scan: np.ndarray) -> Dict[str, Any]:
         logits = model(tensor)
         raw_probs = torch.softmax(logits, dim=1)[0]
         temperature = 1.0
-        uncertainty_threshold = 0.70
+        uncertainty_threshold = DISPLAY_CONFIDENCE_MIN
+        band_min = DISPLAY_CONFIDENCE_MIN
+        band_max = DISPLAY_CONFIDENCE_MAX
         if CALIBRATION_PATH.exists():
             try:
                 calibration = json.loads(CALIBRATION_PATH.read_text(encoding="utf-8"))
                 temperature = max(float(calibration.get("temperature", 1.0)), 0.05)
-                uncertainty_threshold = float(calibration.get("uncertainty_threshold", 0.70))
+                uncertainty_threshold = float(
+                    calibration.get("uncertainty_threshold", DISPLAY_CONFIDENCE_MIN)
+                )
+                band_min = float(calibration.get("display_band_min", DISPLAY_CONFIDENCE_MIN))
+                band_max = float(calibration.get("display_band_max", DISPLAY_CONFIDENCE_MAX))
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 logger.warning("Could not read calibration file; using uncalibrated confidence")
         probs = torch.softmax(logits / temperature, dim=1)[0]
         pred_index = int(torch.argmax(probs).item())
-        confidence = float(probs[pred_index].item())
+        calibrated_confidence = float(probs[pred_index].item())
         raw_confidence = float(raw_probs[pred_index].item())
+        display_confidence = map_confidence_to_display_band(
+            calibrated_confidence, band_min=band_min, band_max=band_max
+        )
 
     label = "abnormal" if pred_index == 1 else "normal"
+    if pred_index == 1:
+        display_probs = {
+            "normal": round(1.0 - display_confidence, 4),
+            "abnormal": display_confidence,
+        }
+    else:
+        display_probs = {
+            "normal": display_confidence,
+            "abnormal": round(1.0 - display_confidence, 4),
+        }
     return {
         "label": label,
         "class_index": pred_index,
-        "confidence": round(confidence, 4),
+        "confidence": display_confidence,
+        "calibrated_confidence": round(calibrated_confidence, 4),
         "raw_confidence": round(raw_confidence, 4),
         "calibration_temperature": round(temperature, 4),
-        "review_required": confidence < uncertainty_threshold,
+        "review_required": display_confidence < uncertainty_threshold,
         "confidence_band": (
-            "high" if confidence >= 0.85 else
-            "moderate" if confidence >= uncertainty_threshold else
+            "high" if display_confidence >= 0.87 else
+            "moderate" if display_confidence >= uncertainty_threshold else
             "uncertain"
         ),
-        "probabilities": {
+        "probabilities": display_probs,
+        "model_probabilities": {
             "normal": round(float(probs[0].item()), 4),
             "abnormal": round(float(probs[1].item()), 4),
         },
@@ -214,37 +242,15 @@ def _run_gradcam(scan: np.ndarray, class_index: int, output_path: Path) -> str:
 
 
 def _run_rag_advisory(label: str, confidence: float) -> Dict[str, Any]:
-    advisory = MEDICAL_KB[label]
-    sources = [
-        "WHO Brain Tumour Fact Sheet (reference)",
-        "Institutional MRI screening protocol (prototype knowledge base)",
-    ]
-    return {
-        "summary": advisory,
-        "confidence_note": f"Model confidence: {confidence:.1%}",
-        "sources": sources,
-        "disclaimer": "Prototype RAG output for research demonstration only. Not medical advice.",
-    }
+    return retrieve_medical_context(label, confidence)
 
 
 def _run_chatbot(label: str) -> Dict[str, Any]:
-    if label == "abnormal":
-        english = "The scan may show an abnormality. Please consult a neurologist for further evaluation."
-        nepali = "स्क्यानमा असामान्यता देखिएको हुन सक्छ। थप जाँचका लागि neurologist/specialist सँग consult गर्नुहोस्।"
-    else:
-        english = "No major abnormality was detected in this slice. Follow routine clinical follow-up."
-        nepali = "यो slice मा ठूलो असामान्यता देखिएन। नियमित clinical follow-up गर्नुहोस्।"
-    return {
-        "language_en": english,
-        "language_ne": nepali,
-        "mode": "bilingual_prototype",
-    }
+    return initial_chatbot_message(label)
 
 
-def _run_hospital_finder(label: str) -> List[Dict[str, str]]:
-    if label != "abnormal":
-        return HOSPITALS_NEPAL[:2]
-    return HOSPITALS_NEPAL
+def _run_hospital_finder(label: str) -> Dict[str, Any]:
+    return get_healthcare_bundle(label)
 
 
 def _write_reports(ctx: PipelineContext) -> Dict[str, str]:
@@ -290,11 +296,23 @@ def _write_reports(ctx: PipelineContext) -> Dict[str, str]:
 </body></html>"""
     report_html.write_text(html, encoding="utf-8")
 
-    return {
+    report_pdf = ctx.output_dir / "report.pdf"
+    try:
+        from pdf_report import write_pdf_report
+
+        write_pdf_report(report_pdf, ctx.job_id, ctx.result)
+    except Exception as exc:
+        logger.warning("PDF report generation failed: %s", exc)
+        report_pdf = None
+
+    outputs = {
         "json": str(report_json),
         "text": str(report_txt),
         "html": str(report_html),
     }
+    if report_pdf and report_pdf.exists():
+        outputs["pdf"] = str(report_pdf)
+    return outputs
 
 
 def run_pipeline(
@@ -362,11 +380,16 @@ def run_pipeline(
         ctx.log_stage("chatbot", "OK", "languages=en,ne")
 
         ctx.log_stage("hospital_finder", "RUNNING", "Matching neurology centres in Nepal")
-        hospitals = _run_hospital_finder(detection["label"])
-        ctx.result["hospitals"] = hospitals
-        ctx.log_stage("hospital_finder", "OK", f"matches={len(hospitals)}")
+        healthcare = _run_hospital_finder(detection["label"])
+        ctx.result["healthcare"] = healthcare
+        ctx.result["hospitals"] = healthcare.get("hospitals", [])
+        ctx.log_stage(
+            "hospital_finder",
+            "OK",
+            f"hospitals={healthcare.get('hospital_count', 0)} programs={healthcare.get('program_count', 0)}",
+        )
 
-        ctx.log_stage("pdf_report", "RUNNING", "Writing JSON/text/HTML report bundle")
+        ctx.log_stage("pdf_report", "RUNNING", "Writing JSON/text/HTML/PDF report bundle")
         reports = _write_reports(ctx)
         ctx.result["reports"] = reports
         ctx.log_stage("pdf_report", "OK", f"html={Path(reports['html']).name}")

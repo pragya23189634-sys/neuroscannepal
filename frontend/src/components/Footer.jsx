@@ -1,11 +1,12 @@
 import React from 'react'
+import { FOOTER } from '../content/siteCopy'
 
 export default function Footer() {
   return (
-    <footer className="mt-auto border-t border-slate-200 bg-white">
-      <div className="container-app flex flex-col gap-2 py-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-        <div>© {new Date().getFullYear()} NeuroScan Nepal · Final Year Project</div>
-        <div className="text-xs">Research prototype — not for clinical diagnosis</div>
+    <footer className="mt-auto border-t border-surface-line bg-surface-card">
+      <div className="container-app flex flex-col gap-1 py-5 text-sm text-brand-600 sm:flex-row sm:items-center sm:justify-between">
+        <div>{FOOTER.left}</div>
+        <div className="text-xs">{FOOTER.right}</div>
       </div>
     </footer>
   )

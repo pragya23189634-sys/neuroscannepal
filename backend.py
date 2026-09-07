@@ -101,6 +101,11 @@ class RadiologistNotesRequest(BaseModel):
     clinical_notes: Optional[str] = None
 
 
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=500)
+    language: str = Field(default="en", pattern="^(en|ne)$")
+
+
 def save_jobs() -> None:
     tmp = JOBS_FILE.with_suffix(".json.tmp")
     try:
@@ -382,6 +387,62 @@ async def get_scan_image(job_id: str, user: Dict[str, Any] = Depends(get_current
 
     media = "image/png" if scan_path.suffix.lower() == ".png" else "image/jpeg"
     return FileResponse(scan_path, media_type=media, filename=job.get("original_filename", scan_path.name))
+
+
+@app.get("/jobs/{job_id}/gradcam")
+async def get_gradcam_image(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
+    job = _get_job_or_404(job_id)
+    if not _user_can_access_job(user, job):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    gradcam_path = RESULTS_DIR / job_id / "gradcam.png"
+    if not gradcam_path.exists():
+        result_path = (job.get("result") or {}).get("gradcam_path")
+        if result_path:
+            gradcam_path = Path(result_path)
+    if not gradcam_path.exists():
+        raise HTTPException(status_code=404, detail="Grad-CAM image not found")
+
+    return FileResponse(gradcam_path, media_type="image/png", filename=f"gradcam_{job_id[:8]}.png")
+
+
+@app.get("/jobs/{job_id}/report/{kind}")
+async def download_report(job_id: str, kind: str, user: Dict[str, Any] = Depends(get_current_user)):
+    job = _get_job_or_404(job_id)
+    if not _user_can_access_job(user, job):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    kind = kind.lower()
+    allowed = {
+        "html": ("report.html", "text/html"),
+        "json": ("report.json", "application/json"),
+        "text": ("report.txt", "text/plain"),
+        "pdf": ("report.pdf", "application/pdf"),
+    }
+    if kind not in allowed:
+        raise HTTPException(status_code=400, detail="Report kind must be html, json, or text")
+
+    filename, media_type = allowed[kind]
+    report_path = RESULTS_DIR / job_id / filename
+    if not report_path.exists():
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    return FileResponse(report_path, media_type=media_type, filename=f"neuroscan_{job_id[:8]}.{kind if kind != 'text' else 'txt'}")
+
+
+@app.post("/jobs/{job_id}/chat")
+async def chat_with_job(job_id: str, body: ChatRequest, user: Dict[str, Any] = Depends(get_current_user)):
+    job = _get_job_or_404(job_id)
+    if not _user_can_access_job(user, job):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if job.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Job must be completed before chat")
+
+    from knowledge_base import answer_chatbot  # noqa: E402
+
+    label = (job.get("result") or {}).get("label", "normal")
+    reply = answer_chatbot(body.message, label, body.language)
+    return {"job_id": job_id, "label": label, **reply}
 
 
 @app.post("/jobs/{job_id}/doctor-review")

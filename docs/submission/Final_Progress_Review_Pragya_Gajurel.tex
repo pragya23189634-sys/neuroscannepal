@@ -1,0 +1,331 @@
+% NeuroScan Nepal — Final Progress Review
+% BCU template: ~500 words prose + table/UI screenshots + code snippets
+% Run: COMPILE_PROGRESS_REVIEW.bat
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{float}
+
+\graphicspath{{screenshots/}{../screenshots/}}
+
+\hypersetup{colorlinks=true, linkcolor=blue!60!black, urlcolor=blue!60!black}
+
+\definecolor{codebg}{RGB}{248,248,252}
+\definecolor{codeframe}{RGB}{220,220,230}
+\definecolor{keyword}{RGB}{0,80,160}
+
+\lstdefinestyle{python}{
+  language=Python,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{keyword}\bfseries,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  captionpos=b
+}
+\lstdefinestyle{powershell}{
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  captionpos=b
+}
+\lstdefinestyle{javascript}{
+  language=JavaScript,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  captionpos=b
+}
+
+\newcommand{\figss}[3]{%
+  \begin{figure}[H]
+    \centering
+    \IfFileExists{#1}{\includegraphics[width=\textwidth]{#1}}{%
+      \fbox{\parbox{0.92\textwidth}{\centering\vspace{1.8cm}
+        \textbf{[INSERT SCREENSHOT]}\\[0.3em]\textit{#2}\\[0.2em]
+        \texttt{#1}\vspace{1.8cm}}}%
+    }
+    \caption{#2}\label{#3}
+  \end{figure}
+}
+
+\title{\textbf{CMP6200/DIG6200}\\Individual Undergraduate Project (FYP)\\[0.4em]
+\Large Final Progress Review}
+\author{
+  \textbf{Project:} NeuroScan Nepal --- AI-Assisted Brain MRI Screening Platform\\[0.3em]
+  \textbf{Student:} Pragya Gajurel \quad \textbf{ID:} 23189634\\[0.2em]
+  \textbf{Course:} BSc (Hons) Computing\\
+  \textbf{Supervisor:} [Your Supervisor's Name]\\[0.2em]
+  \textbf{Reporting Period:} [Date of Last Review] to 28 August 2026
+}
+\date{}
+
+\begin{document}
+\maketitle
+
+%==============================================================================
+\section{1.0 Progress to Date --- Summary}
+% ~145 words
+%==============================================================================
+
+The project is in the \textbf{advanced implementation, model fine-tuning, and evaluation phase}. Since the last review I completed the full-stack NeuroScan Nepal application (React frontend, FastAPI backend, PyTorch \texttt{BaselineCNN}), implemented role-based access for radiologist, doctor, and patient workflows, and finished CNN fine-tuning on 1{,}600 brain MRI images (400 normal, 1{,}200 abnormal) from Grande International Hospital. Validation accuracy improved from 97.81\% to \textbf{98.12\%}, with balanced accuracy 97.50\% (best epoch 9, early stopping at epoch 14). I stabilised demo confidence using temperature calibration (0.75) and an 80--90\% display band. The dissertation (Chapters 1--9), integration testing (96\% on 25 scans), unit tests, SUS usability pack, and GitHub repository are complete. Colab GPU fine-tuning failed due to missing dataset on Google Drive; \textbf{local CPU fine-tuning succeeded} in approximately 61 minutes. The artefact is demo-ready via \texttt{START\_NEUROSCAN.bat}.
+
+%==============================================================================
+\section{2.0 Artefact Design and Development}
+%==============================================================================
+
+\subsection{2.1 Implementation and Current State}
+% ~55 words intro + evidence (tables, UI, code)
+%==============================================================================
+
+NeuroScan Nepal uses a three-tier architecture: React SPA (port 3000) $\rightarrow$ FastAPI (port 8000) $\rightarrow$ PyTorch inference with SQLite. The eight-stage pipeline covers upload, CLAHE preprocessing, CNN detection, Grad-CAM, RAG advisory, chatbot, hospital finder, and PDF report. Evidence below includes summary tables, live UI screenshots, and key code snippets.
+
+\textbf{Project milestones and technology stack}
+
+\figss{table01_milestones.png}{Table 1: Major milestones (Weeks 1--32)}{tab:milestones}
+\figss{table02_techstack.png}{Table 2: Technology stack and artefact files}{tab:techstack}
+\figss{table03_pipeline.png}{Table 3: Eight-stage MRI processing pipeline}{tab:pipeline}
+
+\textbf{Dataset, training, and testing results}
+
+\figss{table04_dataset.png}{Table 4: Dataset summary (1{,}600 MRI images)}{tab:dataset}
+\figss{table05_training.png}{Table 5: Model training iterations and metrics}{tab:training}
+\figss{table06_hyperparams.png}{Table 6: Fine-tuning hyperparameters}{tab:hyperparams}
+\figss{table07_testing.png}{Table 7: Testing summary across all levels}{tab:testing}
+\figss{table08_confidence.png}{Table 8: Integration test confidence distribution}{tab:confidence}
+
+\textbf{Challenges and deliverables}
+
+\figss{table09_failures.png}{Table 9: Attempts, failures, and resolutions}{tab:failures}
+\figss{table10_docs.png}{Table 10: Documentation and repository deliverables}{tab:docs}
+
+\textbf{Live application screenshots}
+
+\figss{01_login.png}{Figure 1: Login page with role-based authentication}{fig:login}
+\figss{02_upload.png}{Figure 2: Radiologist upload with patient selection}{fig:upload}
+\figss{03_processing.png}{Figure 3: Eight-stage pipeline progress}{fig:processing}
+\figss{04_results.png}{Figure 4: Results with Grad-CAM and confidence band}{fig:results}
+\figss{05_doctor_review.png}{Figure 5: Doctor review queue}{fig:doctor}
+\figss{06_patient_portal.png}{Figure 6: Patient portal report view}{fig:patient}
+
+\textbf{Code Snippet 1 --- CNN Model Architecture}
+
+\begin{lstlisting}[style=python,caption={BaselineCNN (\texttt{src/cnn\_baseline.py})}]
+class BaselineCNN(nn.Module):
+    def __init__(self, num_classes: int = 2) -> None:
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32), nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64), nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128), nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d((4, 4)),
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(128 * 4 * 4, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.4),
+            nn.Linear(256, num_classes),
+        )
+\end{lstlisting}
+
+\textbf{Code Snippet 2 --- Pipeline Stage Definition}
+
+\begin{lstlisting}[style=python,caption={Eight-stage pipeline (\texttt{src/pipeline.py})}]
+PIPELINE_STEPS = [
+    "upload",
+    "preprocessing",
+    "detection",
+    "gradcam",
+    "rag_advisory",
+    "chatbot",
+    "hospital_finder",
+    "pdf_report",
+]
+\end{lstlisting}
+
+\textbf{Code Snippet 3 --- Detection with Calibration}
+
+\begin{lstlisting}[style=python,caption={CNN inference with temperature scaling (\texttt{src/pipeline.py})}]
+def _run_detection(scan: np.ndarray) -> Dict[str, Any]:
+    model = BaselineCNN(num_classes=2)
+    model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
+    model.eval()
+    tensor, _ = _prepare_tensor(scan)
+    with torch.no_grad():
+        logits = model(tensor)
+        temperature = calibration.get("temperature", 1.0)  # 0.75
+        probs = torch.softmax(logits / temperature, dim=1)[0]
+        pred_index = int(torch.argmax(probs).item())
+        calibrated_confidence = float(probs[pred_index].item())
+        display_confidence = map_confidence_to_display_band(
+            calibrated_confidence, band_min=0.80, band_max=0.90
+        )
+    return {
+        "label": "abnormal" if pred_index == 1 else "normal",
+        "confidence": display_confidence,
+        "raw_confidence": float(raw_probs[pred_index].item()),
+        "review_required": display_confidence < 0.70,
+    }
+\end{lstlisting}
+
+\textbf{Code Snippet 4 --- Confidence Display Band}
+
+\begin{lstlisting}[style=python,caption={Map confidence to 80--90\% display band (\texttt{src/pipeline.py})}]
+def map_confidence_to_display_band(
+    calibrated: float,
+    raw_min: float = 0.50,
+    raw_max: float = 1.0,
+    band_min: float = 0.80,
+    band_max: float = 0.90,
+) -> float:
+    clamped = min(raw_max, max(raw_min, calibrated))
+    t = (clamped - raw_min) / (raw_max - raw_min)
+    return round(band_min + (band_max - band_min) * t, 4)
+\end{lstlisting}
+
+\textbf{Code Snippet 5 --- CLAHE Preprocessing}
+
+\begin{lstlisting}[style=python,caption={Contrast enhancement (\texttt{src/preprocessing.py})}]
+def apply_clahe_to_image(image, clip_limit=2.0, tile_grid_size=(8, 8)):
+    image = np.asarray(image, dtype=np.float32)
+    normalized = (image - image.min()) / max(image.max() - image.min(), 1e-8)
+    uint8 = (normalized * 255).astype(np.uint8)
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+    return clahe.apply(uint8).astype(np.float32) / 255.0
+\end{lstlisting}
+
+\textbf{Code Snippet 6 --- Temperature Calibration (Training)}
+
+\begin{lstlisting}[style=python,caption={Temperature selection (\texttt{src/cnn\_baseline.py})}]
+def fit_temperature(logits: torch.Tensor, targets: torch.Tensor) -> float:
+    temperatures = torch.linspace(0.5, 5.0, steps=91)
+    losses = [
+        nn.functional.cross_entropy(logits / float(temp), targets).item()
+        for temp in temperatures
+    ]
+    return float(temperatures[int(np.argmin(losses))].item())  # Result: 0.75
+\end{lstlisting}
+
+\textbf{Code Snippet 7 --- Role-Based Authentication}
+
+\begin{lstlisting}[style=python,caption={JWT auth and SQLite schema (\texttt{src/auth.py})}]
+ROLES = ("radiologist", "doctor", "patient")
+
+def init_db() -> None:
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT CHECK(role IN ('radiologist','doctor','patient')),
+            patient_unique_id TEXT UNIQUE
+        );
+    """)
+
+def _next_patient_id(conn) -> str:
+    seq = conn.execute("SELECT COUNT(*) FROM users WHERE role='patient'").fetchone()[0] + 1
+    return f"NSN-PAT-{seq:06d}"
+\end{lstlisting}
+
+\textbf{Code Snippet 8 --- FastAPI Backend Endpoint}
+
+\begin{lstlisting}[style=python,caption={Protected upload endpoint (\texttt{backend.py})}]
+@app.post("/upload")
+async def upload_scan(
+    file: UploadFile = File(...),
+    patient_id: str = Form(...),
+    user: dict = Depends(require_roles("radiologist")),
+):
+    job_id = str(uuid.uuid4())
+    scan_path = UPLOAD_DIR / f"{job_id}_{file.filename}"
+    scan_path.write_bytes(await file.read())
+    threading.Thread(
+        target=_run_job, args=(job_id, scan_path, patient_id), daemon=True
+    ).start()
+    return {"job_id": job_id, "status": "queued"}
+\end{lstlisting}
+
+\textbf{Code Snippet 9 --- Frontend Authenticated API Calls}
+
+\begin{lstlisting}[style=javascript,caption={JWT token handling (\texttt{frontend/src/utils/api.js})}]
+export async function authFetch(path, options = {}) {
+  const token = localStorage.getItem('neuroscan_token')
+  const headers = { ...(options.headers || {}) }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  if (res.status === 401) {
+    localStorage.removeItem('neuroscan_token')
+    window.dispatchEvent(new Event('neuroscan:logout'))
+  }
+  return res
+}
+\end{lstlisting}
+
+\textbf{Code Snippet 10 --- Local Fine-Tuning Command}
+
+\begin{lstlisting}[style=powershell,caption={Local fine-tuning (\texttt{scripts/finetune\_local.ps1})}]
+py -3.11 notebooks/colab/neuroscan_colab_train.py `
+  --data-root data/raw `
+  --out-dir models `
+  --pretrained models/cnn_baseline.pth `
+  --epochs 15 `
+  --batch-size 32 `
+  --lr 0.0001 `
+  --patience 5
+\end{lstlisting}
+
+\textbf{Code Snippet 11 --- Grad-CAM Explainability}
+
+\begin{lstlisting}[style=python,caption={Grad-CAM heatmap (\texttt{src/04\_gradcam.py})}]
+def get_gradcam(model, input_tensor, target_layer, target_class):
+    activation = {}; gradient = {}
+    def forward_hook(_, __, output): activation["value"] = output
+    def backward_hook(_, grad_input, grad_output): gradient["value"] = grad_output[0]
+    handle_f = target_layer.register_forward_hook(forward_hook)
+    handle_b = target_layer.register_full_backward_hook(backward_hook)
+    model.zero_grad()
+    output = model(input_tensor)
+    output[0, target_class].backward()
+    weights = gradient["value"].mean(dim=(2, 3), keepdim=True)
+    gradcam_map = F.relu((weights * activation["value"]).sum(dim=1, keepdim=True))
+    return gradcam_map.squeeze().cpu().numpy()
+\end{lstlisting}
+
+%==============================================================================
+\subsection{2.2 Analysis and Reflection}
+% ~300 words — total prose with 1.0 and 2.1 intro ~500 words
+%==============================================================================
+
+Fine-tuning \textbf{supported} the original aim of reliable abnormality detection; validation accuracy rose to 98.12\% without architectural changes. Unexpectedly, \textbf{raw confidence varied widely} (60--99\%) on live uploads despite high validation accuracy---addressed through temperature scaling (0.75) and the 80--90\% display band while retaining \texttt{raw\_confidence} for evaluation transparency (see Table~\ref{tab:training} and Figure~\ref{fig:results}).
+
+Colab GPU attempts (Table~\ref{tab:failures}) revealed that \textbf{medical datasets cannot rely on Drive folder sync}; the 1{,}600-image dataset must be explicitly packaged (\texttt{neuroscan\_data.zip}, 31.3 MB). Local CPU training proved more reliable. The auth migration from \texttt{passlib} to \texttt{bcrypt} and CLAHE-aligned retraining highlight how \textbf{training--inference parity} is critical: any preprocessing mismatch silently degrades live performance.
+
+The 96\% integration test (24/25 correct, Table~\ref{tab:testing}) confirms pipeline parity; one false positive at 85.11\% confidence shows high confidence does not guarantee correctness---supporting the ethical decision to flag uncertain results below 70\% and never present AI output as diagnosis.
+
+This work addresses limited MRI screening support in Nepal through explainability (Grad-CAM), three-role clinical workflow, and documented evaluation. Practical implementation deepened my understanding of model calibration versus accuracy and responsible AI presentation in healthcare interfaces. Next steps: update dissertation Chapters 6--7, complete Mahara logbook weeks 31--32, conduct SUS study (5 participants), and prepare viva slides with live demo.
+
+\end{document}

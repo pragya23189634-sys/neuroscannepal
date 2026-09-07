@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CloudArrowUpIcon, DocumentIcon } from '@heroicons/react/24/outline'
 import { API_BASE } from '../config'
+import { PAGES } from '../content/siteCopy'
 import PageHeader from '../components/PageHeader'
 import StatusBadge from '../components/StatusBadge'
 import { authFetch, getToken } from '../utils/api'
@@ -103,9 +104,9 @@ export default function Upload() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Radiologist"
-        title="Upload MRI scan"
-        description="Select a registered patient, upload their MRI, and run the full AI classification pipeline."
+        eyebrow={PAGES.upload.eyebrow}
+        title={PAGES.upload.title}
+        description={PAGES.upload.description}
       />
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">

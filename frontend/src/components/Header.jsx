@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import BackendStatus from './BackendStatus'
 import { useAuth } from '../context/AuthContext'
+import { BRAND } from '../content/siteCopy'
 
 const navClass = ({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`
 
@@ -40,16 +41,20 @@ export default function Header() {
     navigate('/login')
   }
 
+  const homeTo = isAuthenticated
+    ? (user?.role === 'patient' ? '/my-records' : user?.role === 'doctor' ? '/doctor-review' : '/')
+    : '/login'
+
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-      <div className="container-app flex items-center justify-between py-4">
-        <Link to={isAuthenticated ? (user?.role === 'patient' ? '/my-records' : user?.role === 'doctor' ? '/doctor-review' : '/') : '/login'} className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-700 text-sm font-bold text-white shadow-sm">
+    <header className="sticky top-0 z-40 border-b border-brand-900/20 bg-brand-900 text-white">
+      <div className="container-app flex items-center justify-between py-3">
+        <Link to={homeTo} className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center border border-white/20 bg-brand-800 font-display text-sm font-semibold">
             NS
           </div>
           <div>
-            <div className="text-base font-semibold text-slate-900">NeuroScan Nepal</div>
-            <div className="text-xs text-slate-500">Brain MRI screening & clinical support</div>
+            <div className="font-display text-base font-semibold leading-tight">{BRAND.name}</div>
+            <div className="text-[11px] text-white/60">{BRAND.subtitle}</div>
           </div>
         </Link>
 
@@ -57,15 +62,15 @@ export default function Header() {
           <BackendStatus />
           {isAuthenticated && (
             <div className="hidden text-right md:block">
-              <p className="text-sm font-medium text-slate-900">{user.full_name}</p>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-medium">{user.full_name}</p>
+              <p className="text-[11px] text-white/60">
                 {ROLE_LABELS[user.role]}
                 {user.patient_unique_id ? ` · ${user.patient_unique_id}` : ''}
               </p>
             </div>
           )}
           {isAuthenticated && (
-            <nav className="hidden items-center gap-1 md:flex">
+            <nav className="hidden items-center gap-0.5 md:flex">
               {navItems.map(([to, label]) => (
                 <NavLink key={to} to={to} end={to === '/'} className={navClass}>{label}</NavLink>
               ))}
@@ -75,20 +80,22 @@ export default function Header() {
             <Link to="/upload" className="btn-primary hidden md:inline-flex">New scan</Link>
           )}
           {isAuthenticated ? (
-            <button type="button" className="btn-secondary hidden md:inline-flex" onClick={handleLogout}>Sign out</button>
+            <button type="button" className="hidden rounded-md border border-white/25 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 md:inline-flex" onClick={handleLogout}>
+              Sign out
+            </button>
           ) : (
             <Link to="/login" className="btn-primary hidden md:inline-flex">Sign in</Link>
           )}
-          <button type="button" className="rounded-lg p-2 text-slate-600 md:hidden" onClick={() => setOpen((v) => !v)} aria-label="Toggle menu">
+          <button type="button" className="rounded-md p-2 text-white/80 md:hidden" onClick={() => setOpen((v) => !v)} aria-label="Toggle menu">
             {open ? <XMarkIcon className="h-6 w-6" /> : <Bars3Icon className="h-6 w-6" />}
           </button>
         </div>
       </div>
 
       {open && (
-        <div className="border-t border-slate-200 bg-white px-4 py-3 md:hidden">
+        <div className="border-t border-white/10 bg-brand-800 px-4 py-3 md:hidden">
           {isAuthenticated && (
-            <p className="mb-2 px-2 text-sm text-slate-600">{user.full_name} · {ROLE_LABELS[user.role]}</p>
+            <p className="mb-2 px-2 text-sm text-white/70">{user.full_name} · {ROLE_LABELS[user.role]}</p>
           )}
           <nav className="flex flex-col gap-1">
             {isAuthenticated ? (
@@ -101,7 +108,9 @@ export default function Header() {
                 {user?.role === 'radiologist' && (
                   <Link to="/upload" className="btn-primary mt-2" onClick={() => setOpen(false)}>New scan</Link>
                 )}
-                <button type="button" className="btn-secondary mt-2" onClick={() => { setOpen(false); handleLogout() }}>Sign out</button>
+                <button type="button" className="mt-2 rounded-md border border-white/25 px-3 py-2 text-sm text-white" onClick={() => { setOpen(false); handleLogout() }}>
+                  Sign out
+                </button>
               </>
             ) : (
               <Link to="/login" className="btn-primary" onClick={() => setOpen(false)}>Sign in</Link>

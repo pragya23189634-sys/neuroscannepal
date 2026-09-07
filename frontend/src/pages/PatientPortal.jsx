@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { authFetch, fetchScanImageBlob } from '../utils/api'
 import { formatConfidencePercent, getJobConfidence } from '../utils/jobResult'
+import { PAGES } from '../content/siteCopy'
 import PageHeader from '../components/PageHeader'
 import StatusBadge from '../components/StatusBadge'
 
@@ -63,9 +64,9 @@ export default function PatientPortal() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Patient portal"
-        title="My MRI records"
-        description="View your scanned MRI images, AI analysis reports, and your doctor's recommendations."
+        eyebrow={PAGES.patientPortal.eyebrow}
+        title={PAGES.patientPortal.title}
+        description={PAGES.patientPortal.description}
       />
 
       <div className="card border-primary/20 bg-gradient-to-r from-blue-50 to-slate-50 p-6">

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowDownTrayIcon, BuildingOffice2Icon, ChatBubbleLeftRightIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
+import { PAGES } from '../content/siteCopy'
 import PageHeader from '../components/PageHeader'
 import StatusBadge from '../components/StatusBadge'
 import { formatConfidencePercent } from '../utils/jobResult'
@@ -212,9 +213,9 @@ export default function Results() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Clinical output"
-        title="Analysis results"
-        description="Review AI outputs, add your investigation recommendation, and track doctor follow-up."
+        eyebrow={PAGES.results.eyebrow}
+        title={PAGES.results.title}
+        description={PAGES.results.description}
       />
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">

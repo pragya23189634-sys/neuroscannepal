@@ -33,14 +33,14 @@ export default function BackendStatus() {
   if (online === null) return null
 
   return (
-    <div className={`hidden items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset md:flex ${
+    <div className={`hidden items-center gap-2 rounded-sm border px-2 py-1 font-mono text-[10px] uppercase tracking-wide md:flex ${
       online
         ? pipelineReady
-          ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-          : 'bg-amber-50 text-amber-700 ring-amber-200'
-        : 'bg-red-50 text-red-700 ring-red-200'
+          ? 'border-emerald-400/30 bg-emerald-900/40 text-emerald-100'
+          : 'border-amber-400/30 bg-amber-900/40 text-amber-100'
+        : 'border-red-400/30 bg-red-900/40 text-red-100'
     }`}>
-      <span className={`h-2 w-2 rounded-full ${online ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+      <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-emerald-400' : 'bg-red-400'}`} />
       {online ? (pipelineReady ? 'Pipeline ready' : 'Backend online') : 'Backend offline'}
     </div>
   )

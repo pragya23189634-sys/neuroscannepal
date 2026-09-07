@@ -1,0 +1,154 @@
+% NeuroScan Nepal — CMP6200 Final Progress Review (BCU Brief T1 compliant)
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{grffile}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{url}
+
+\onehalfspacing
+\graphicspath{{./}{screenshots/}}
+\hypersetup{colorlinks=true, linkcolor=blue!60!black, urlcolor=blue!60!black}
+\captionsetup{font=small, labelfont=bf}
+
+\newcommand{\figapp}[3]{%
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,keepaspectratio]{#1}%
+    \caption{#2}\label{#3}
+  \end{figure}
+}
+
+\title{\textbf{CMP6200 / DIG6200}\\[0.3em]
+Individual Hons Project (FYP): NeuroScan Nepal --- AI-Assisted Brain MRI Screening Platform\\[0.5em]
+\large Final Progress Review}
+\author{
+  \textbf{Student Name:} Pragya Gajurel \quad \textbf{Student ID:} 23189634\\[0.2em]
+  \textbf{Course:} BSc (Hons) Computing\\
+  \textbf{Supervisor:} [Name of your Supervisor]\\[0.2em]
+  \textbf{Date of last review:} 15 June 2026\\
+  \textbf{This review prepared on:} 31 August 2026\\
+  \textbf{Reporting period:} 15 June 2026 to 31 August 2026\\[0.2em]
+  \textbf{GitHub:} \url{https://github.com/pragya23189634-sys/neuroscannepal}\\[0.3em]
+  \textit{[Attach BCU assessment cover sheet before submission]}
+}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%==============================================================================
+\section{Progress to Date}
+% Brief: single-paragraph summary of status, activities since last update, early findings
+%==============================================================================
+
+The project is in the advanced implementation, Google Colab fine-tuning, and evaluation phase. Since the last review I completed the full-stack NeuroScan Nepal application (React, FastAPI, PyTorch BaselineCNN), role-based workflows for radiologist, doctor, and patient users, and CNN fine-tuning on 1{,}600 brain MRI images from Grande International Hospital. Following Google Colab fine-tuning, validation accuracy reached 90.0\% with balanced accuracy 90.0\%; clinician-facing confidence is capped at 90\% using temperature calibration (0.75) and \texttt{map\_confidence\_to\_display\_band()}. Integration testing achieved 90\% (23/25). Primary early findings are that training--inference parity (CLAHE preprocessing) and responsible confidence display are as critical as raw model accuracy for a clinical screening tool. The dissertation draft, unit tests, SUS pack, and GitHub repository are complete, and the artefact runs via \texttt{START\_NEUROSCAN.bat}.
+
+%==============================================================================
+\section{Artefact Design}
+% Brief: design/development evidence, discipline-specific methods, implications,
+%        link to problem, how understanding changed (40%)
+%==============================================================================
+
+\subsection{Design, Development, and Evidence}
+
+NeuroScan Nepal uses a three-tier architecture (React $\rightarrow$ FastAPI $\rightarrow$ PyTorch/SQLite) with an eight-stage MRI pipeline: upload, CLAHE preprocessing, CNN detection, Grad-CAM, RAG advisory, chatbot, hospital finder, and PDF report. Concrete progress includes a working web dashboard, JWT role-based access, offline and integration test scripts, and a reproducible Colab fine-tuning notebook. Summary tables, UI screenshots, and code snippets are provided in Appendices A--C to evidence milestones, dataset use, training metrics, testing, failures resolved, and live application behaviour without exceeding the word limit.
+
+\subsection{Discipline-Specific Methodologies and Techniques}
+
+The artefact applies computing and machine-learning methods appropriate to medical image classification and full-stack deployment: (1)~\textbf{BaselineCNN} binary classifier trained with class weighting, augmentation, and early stopping; (2)~\textbf{CLAHE} preprocessing aligned between training and inference; (3)~\textbf{Grad-CAM} for explainability; (4)~\textbf{temperature scaling} and a bounded confidence display band for responsible UI presentation; (5)~\textbf{Google Colab GPU fine-tuning} with exported calibration metadata; (6)~\textbf{FastAPI} asynchronous job pipeline with SQLite persistence; (7)~\textbf{JWT/bcrypt RBAC} for three clinical roles; and (8)~\textbf{pytest} unit tests plus a 25-image integration harness. An iterative plan--build--test cycle was used, revising preprocessing and deployment after live testing exposed mismatches.
+
+\subsection{Analysis, Implications, and Reflection}
+
+Fine-tuning in Google Colab achieved 90.0\% validation accuracy without changing the CNN architecture (Appendix~A, Table~5). This connects to the original problem of limited MRI screening support in Nepal: the tool can flag likely abnormalities and route cases to doctors, but it must not be presented as a diagnosis. Capping confidence at 90\% and retaining \texttt{raw\_confidence} for evaluation reflects this ethical constraint. Initial Colab runs failed when the dataset zip was missing on Drive; packaging \texttt{neuroscan\_data.zip} locally resolved this---I now understand that medical datasets require explicit, auditable transfer rather than folder sync. CLAHE-aligned retraining fixed a silent live accuracy drop, showing that my understanding of the project shifted from ``accuracy on validation'' to ``parity across the full pipeline.'' Grad-CAM and the three-role workflow (radiologist upload, doctor review, patient portal) align the AI output with real clinical process. Risks remain: model performance on unseen scanners, pending SUS usability study, and final dissertation alignment with latest Colab metrics.
+
+%==============================================================================
+\section{Updated Planning}
+% Brief: goals ahead of deadline, how initial plan evolved, chapter outline with
+%        main points (25%)
+%==============================================================================
+
+\subsection{Revised Plan and How It Has Evolved}
+
+The initial plan prioritised local model training and a prototype dashboard by Week~28. After integration testing, the plan evolved to add Google Colab fine-tuning (Weeks~31--32), confidence calibration for the live UI, and a structured SUS evaluation before submission. Feasibility is confirmed for the viva demo on Windows; the main remaining risk is completing the usability study within the reporting window. Ethical controls (hospital data consent, AI disclaimers, no public release of MRI files on GitHub) remain in place.
+
+\subsection{Goals Before Final Submission}
+
+\begin{itemize}[noitemsep]
+  \item Finalise dissertation Chapters~6--7 with Colab 90\% accuracy and confidence-band methodology.
+  \item Complete Mahara logbook weeks~31--32 and obtain supervisor sign-off.
+  \item Conduct SUS usability study with five participants and analyse results.
+  \item Prepare viva slides and rehearse a ten-minute live demo (\texttt{START\_NEUROSCAN.bat}).
+  \item Push \texttt{NeuroScan\_Finetune\_SIMPLE.ipynb} to GitHub for examiner reproducibility.
+\end{itemize}
+
+\subsection{Draft Outline of Final Report (Dissertation)}
+
+\begin{itemize}[noitemsep]
+  \item \textbf{Chapter 1 --- Introduction:} Nepal healthcare context, limited MRI access, problem statement, aim to build an AI-assisted screening platform with explainability and role-based workflow.
+  \item \textbf{Chapter 2 --- Literature Review:} CNN-based brain MRI classification, Grad-CAM, clinical decision support, gap in Nepalese deployment context.
+  \item \textbf{Chapter 3 --- Requirements:} Functional requirements (upload, detect, explain, report) and non-functional requirements (RBAC, $<$60\,s pipeline, ethical disclaimers).
+  \item \textbf{Chapter 4 --- Design:} Three-tier architecture, eight-stage pipeline, BaselineCNN design, database schema for users and jobs.
+  \item \textbf{Chapter 5 --- Implementation:} React frontend, FastAPI backend, PyTorch inference, Colab fine-tuning workflow, confidence calibration.
+  \item \textbf{Chapter 6 --- Testing:} Unit tests (auth, confidence band), 90\% integration test (23/25), manual RBAC checklist (30/30).
+  \item \textbf{Chapter 7 --- Evaluation:} Colab metrics (90\% accuracy/confidence cap), SUS results, limitations (dataset size, single hospital source).
+  \item \textbf{Chapter 8 --- Ethics:} Grande International Hospital data handling, GDPR-style principles, AI-not-diagnosis policy.
+  \item \textbf{Chapter 9 --- Conclusion:} Contributions, limitations, future work (multi-site validation, DICOM support, national deployment).
+\end{itemize}
+
+A tabular planning summary and full chapter table are also included in Appendix~A (Tables~11--12).
+
+%==============================================================================
+\section*{References}
+\addcontentsline{toc}{section}{References}
+% BCU Harvard — not included in word count
+%==============================================================================
+
+\begin{enumerate}[label={[\arabic*]}, leftmargin=*, itemsep=0.25em]
+  \item Rajpurkar, P., et al. (2022) `AI in health and medicine', \textit{Nature Medicine}, 28(1), pp.~31--38.
+  \item Selvaraju, R.R., et al. (2017) `Grad-CAM: Visual explanations from deep networks', \textit{Proceedings of ICCV}, pp.~618--626.
+  \item Grande International Hospital (2025) \textit{Internal MRI dataset agreement} [Confidential project document]. NeuroScan Nepal FYP archive.
+\end{enumerate}
+
+\newpage
+\appendix
+\section{Appendix A: Summary Tables}
+\figapp{table01_milestones.png}{Table A1: Major milestones}{tab:milestones}
+\figapp{table02_techstack.png}{Table A2: Technology stack}{tab:techstack}
+\figapp{table03_pipeline.png}{Table A3: Eight-stage pipeline}{tab:pipeline}
+\figapp{table04_dataset.png}{Table A4: Dataset summary}{tab:dataset}
+\figapp{table05_training.png}{Table A5: Model training history (Colab 90\%)}{tab:training}
+\figapp{table06_hyperparams.png}{Table A6: Colab hyperparameters}{tab:hyperparams}
+\figapp{table07_testing.png}{Table A7: Testing summary}{tab:testing}
+\figapp{table08_confidence.png}{Table A8: Confidence distribution (90\% cap)}{tab:confidence}
+\figapp{table09_failures.png}{Table A9: Failures and resolutions}{tab:failures}
+\figapp{table10_docs.png}{Table A10: Documentation deliverables}{tab:docs}
+\figapp{table11_planning.png}{Table A11: Updated planning}{tab:planning}
+\figapp{table12_dissertation_outline.png}{Table A12: Dissertation outline}{tab:dissertation}
+
+\section{Appendix B: Application Screenshots}
+\figapp{01_login.png}{Figure B1: Login --- role-based authentication}{fig:login}
+\figapp{02_upload.png}{Figure B2: Radiologist upload with patient selection}{fig:upload}
+\figapp{03_processing.png}{Figure B3: Pipeline progress (8/8 complete)}{fig:processing}
+\figapp{04_results.png}{Figure B4: Results --- 90.0\% confidence after Colab fine-tune}{fig:results}
+\figapp{05_doctor_review.png}{Figure B5: Doctor review queue}{fig:doctor}
+\figapp{06_patient_portal.png}{Figure B6: Patient portal report view}{fig:patient}
+
+\section{Appendix C: Code Snippets (VS Code / Google Colab)}
+\figapp{code01_cnn_baseline.png}{Figure C1: BaselineCNN (\texttt{src/cnn\_baseline.py})}{code:cnn}
+\figapp{code02_pipeline.png}{Figure C2: Pipeline stages (\texttt{src/pipeline.py})}{code:pipeline}
+\figapp{code03_detection.png}{Figure C3: 90\% confidence cap (\texttt{src/pipeline.py})}{code:detection}
+\figapp{code04_colab_train.png}{Figure C4: Colab fine-tuning cell}{code:colab}
+\figapp{code05_backend_upload.png}{Figure C5: FastAPI upload (\texttt{backend.py})}{code:upload}
+
+\end{document}

@@ -1,14 +1,15 @@
 import React from 'react'
 import { MODEL_INFO } from '../config'
+import { PAGES } from '../content/siteCopy'
 import PageHeader from '../components/PageHeader'
 
 export default function ModelInfo() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Machine learning"
-        title="Model information"
-        description="Details of the baseline convolutional neural network used for brain MRI abnormality screening in this prototype."
+        eyebrow={PAGES.model.eyebrow}
+        title={PAGES.model.title}
+        description={PAGES.model.description}
       />
 
       <div className="grid gap-6 lg:grid-cols-2">

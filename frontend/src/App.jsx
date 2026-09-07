@@ -1,5 +1,5 @@
 import React from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -15,10 +15,13 @@ import DoctorReview from './pages/DoctorReview'
 import PatientPortal from './pages/PatientPortal'
 
 export default function App() {
+  const { pathname } = useLocation()
+  const isAuthScreen = pathname === '/login' || pathname === '/register'
+
   return (
-    <div className="flex min-h-screen flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50 via-slate-50 to-slate-100">
-      <Header />
-      <main className="container-app flex-1 py-8">
+    <div className={`flex min-h-screen flex-col bg-surface ${isAuthScreen ? 'h-screen overflow-hidden' : ''}`}>
+      {!isAuthScreen && <Header />}
+      <main className={`flex-1 ${isAuthScreen ? 'min-h-0 overflow-hidden' : 'container-app py-8'}`}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -36,7 +39,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </main>
-      <Footer />
+      {!isAuthScreen && <Footer />}
     </div>
   )
 }

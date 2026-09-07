@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { authFetch, fetchScanImageBlob } from '../utils/api'
 import { formatConfidencePercent, getJobConfidence } from '../utils/jobResult'
+import { PAGES } from '../content/siteCopy'
 import PageHeader from '../components/PageHeader'
 import StatusBadge from '../components/StatusBadge'
 
@@ -98,9 +99,9 @@ export default function DoctorReview() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Doctor portal"
-        title="MRI review & recommendations"
-        description="Review patient MRI scans, read AI-generated results, and provide your clinical recommendation."
+        eyebrow={PAGES.doctorReview.eyebrow}
+        title={PAGES.doctorReview.title}
+        description={PAGES.doctorReview.description}
       />
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">

@@ -36,9 +36,9 @@ if (Test-Path $out) { Remove-Item $out -Force }
 Compress-Archive -Path $normal, $abnormal -DestinationPath $out -CompressionLevel Optimal
 $sizeMb = [math]::Round((Get-Item $out).Length / 1MB, 1)
 
-Write-Host "Created: $out ($sizeMb MB)" -ForegroundColor Green
+Write-Host ("Created: {0} ({1} MB)" -f $out, $sizeMb) -ForegroundColor Green
 Write-Host ""
-Write-Host "NEXT — upload this ONE file to Google Drive:" -ForegroundColor Yellow
+Write-Host "NEXT - upload this ONE file to Google Drive:" -ForegroundColor Yellow
 Write-Host "  1. Open https://drive.google.com"
 Write-Host "  2. Open folder: final year project / NeuroScan_Nepal"
 Write-Host "  3. Upload: neuroscan_data.zip  (from scripts folder)"
